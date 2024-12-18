@@ -1,8 +1,13 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/rs/zerolog/log"
 	"hotaru.hana.im/server/pkg/web"
@@ -37,7 +42,22 @@ func main() {
 	log.Debug().Any("config", config).Send()
 
 	server := web.NewServer(ptr(log.With().Str("comp", "web").Logger()))
-	server.Serve()
+	go func() {
+		if err := server.Serve(); err != nil {
+			if !errors.Is(err, http.ErrServerClosed) {
+				log.Error().Err(err).Msg("web server error")
+			}
+		}
+	}()
+
+	// shutdown gracefully
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+	<-c
+	if err := server.Shutdown(); err != nil {
+		log.Error().Err(err).Msg("shutdown web server error")
+	}
+	log.Info().Msg("web server shutdown gracefully")
 }
 
 func ptr[T any](x T) *T {

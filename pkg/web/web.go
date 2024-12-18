@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -31,6 +32,10 @@ func NewServer(logger *zerolog.Logger) *Server {
 
 func (s *Server) Serve() error {
 	return s.HTTP.ListenAndServe()
+}
+
+func (s *Server) Shutdown() error {
+	return s.HTTP.Shutdown(context.Background())
 }
 
 func hotaruRouter() *chi.Mux {
