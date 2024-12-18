@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"hotaru.hana.im/server/pkg/config"
+	"hotaru.hana.im/server/pkg/web"
 )
 
 var Version = "dev"
@@ -33,4 +34,6 @@ func main() {
 		fmt.Println("read config failed")
 	}
 	fmt.Println(config)
+
+	web.Serve()
 }
