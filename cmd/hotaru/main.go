@@ -36,5 +36,10 @@ func main() {
 	}
 	log.Debug().Any("config", config).Send()
 
-	web.Serve()
+	server := web.NewServer(ptr(log.With().Str("comp", "web").Logger()))
+	server.Serve()
+}
+
+func ptr[T any](x T) *T {
+	return &x
 }

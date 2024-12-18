@@ -4,15 +4,33 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
+	"hotaru.hana.im/server/pkg/web/middleware"
 )
 
-func Serve() {
+type Server struct {
+	HTTP   *http.Server
+	Logger *zerolog.Logger
+}
+
+func NewServer(logger *zerolog.Logger) *Server {
+	if logger == nil {
+		logger = &log.Logger
+	}
+
 	r := chi.NewRouter()
-	r.Use(middleware.Logger)
+	r.Use(middleware.Logger(logger))
 	r.Mount("/_hotaru", hotaruRouter())
 
-	http.ListenAndServe(":8008", r)
+	return &Server{
+		HTTP:   &http.Server{Addr: ":8009", Handler: r},
+		Logger: logger,
+	}
+}
+
+func (s *Server) Serve() error {
+	return s.HTTP.ListenAndServe()
 }
 
 func hotaruRouter() *chi.Mux {
