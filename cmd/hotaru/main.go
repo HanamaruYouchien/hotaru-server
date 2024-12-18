@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 
-	"hotaru.hana.im/server/pkg/config"
+	"github.com/rs/zerolog/log"
 	"hotaru.hana.im/server/pkg/web"
 )
 
@@ -29,11 +29,12 @@ func main() {
 	flag.BoolVar(&firstRun, "init", false, "Initialize database")
 	flag.Parse()
 
-	config, err := config.ReadConfig(configPath)
+	config, err := ReadConfig(configPath)
+	SetLogger(config.Log)
 	if err != nil {
-		fmt.Println("read config failed")
+		log.Error().Err(err).Msg("read config failed, use default config instead")
 	}
-	fmt.Println(config)
+	log.Debug().Any("config", config).Send()
 
 	web.Serve()
 }
