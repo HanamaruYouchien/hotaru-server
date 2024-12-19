@@ -28,12 +28,16 @@ func Logger(l *zerolog.Logger) func(next http.Handler) http.Handler {
 					Send()
 			}()
 
-			next.ServeHTTP(ww, WithLogEntry(r, l))
+			next.ServeHTTP(ww, WithLogger(r, l))
 		})
 	}
 }
 
-func WithLogEntry(r *http.Request, l *zerolog.Logger) *http.Request {
+func WithLogger(r *http.Request, l *zerolog.Logger) *http.Request {
 	r = r.WithContext(context.WithValue(r.Context(), CtxKeyLogger, l))
 	return r
+}
+
+func GetLogger(r *http.Request) *zerolog.Logger {
+	return r.Context().Value(CtxKeyLogger).(*zerolog.Logger)
 }
