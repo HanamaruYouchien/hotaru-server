@@ -25,6 +25,8 @@ const (
 )
 
 var ErrPasswordTooWeak = errors.New("password too weak")
+var ErrAccountNotExist = errors.New("account not exist")
+var ErrPasswordNotCorrect = errors.New("username or password not correct")
 
 func (db *Storage) CreateAccount(localpart, password string, accountType AccountType) error {
 	if !validatePasswordStrength(password) {
@@ -45,6 +47,26 @@ func (db *Storage) CreateAccount(localpart, password string, accountType Account
 
 	_, err = db.engine.InsertOne(account)
 	return err
+}
+
+func (db *Storage) ValidateAccount(localpart, password string) error {
+	account := &Account{}
+	isFind, err := db.engine.ID(localpart).Get(account)
+	if err != nil {
+		return err
+	}
+	if !isFind {
+		return ErrAccountNotExist
+	}
+
+	saltBytes, err := hex.DecodeString(account.Salt)
+	if err != nil {
+		return err
+	}
+	if !crypto.VerifyPassword(account.PasswordHash, password, saltBytes) {
+		return ErrPasswordNotCorrect
+	}
+	return nil
 }
 
 func (db *Storage) Ping() error {
