@@ -36,8 +36,9 @@ func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger(logger))
-	r.Use(middleware.WithCors)
-	r.Mount("/_hotaru", s.hotaruRouter())
+	r.Use(middleware.WithHeaders)
+	r.Mount("/_matrix", s.matrixRouters())
+	r.Mount("/_hotaru", s.hotaruRouters())
 
 	s.http.Handler = r
 
@@ -50,18 +51,4 @@ func (s *Server) Serve() error {
 
 func (s *Server) Shutdown() error {
 	return s.http.Shutdown(context.Background())
-}
-
-func (s *Server) hotaruRouter() *chi.Mux {
-	r := chi.NewRouter()
-	r.Get("/status", s.pingHandler)
-	return r
-}
-
-func (s *Server) pingHandler(w http.ResponseWriter, _ *http.Request) {
-	if err := s.db.Ping(); err != nil {
-		http.Error(w, "DB ERROR, PLEASE REPORT TO OP", http.StatusInternalServerError)
-		return
-	}
-	w.Write([]byte("OK"))
 }

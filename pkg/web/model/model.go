@@ -39,3 +39,7 @@ const (
 	ErrCodeResourceLimitExeeded        = "M_RESOURCE_LIMIT_EXCEEDED"
 	ErrCodeCannotLeaveServerNoticeRoom = "M_CANNOT_LEAVE_SERVER_NOTICE_ROOM"
 )
+
+type ResponseClientVersions struct {
+	Versions []string `json:"versions"`
+}
