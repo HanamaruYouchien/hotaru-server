@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/rs/zerolog/log"
+	"hotaru.hana.im/server/pkg/storage"
 	"hotaru.hana.im/server/pkg/web"
 )
 
@@ -34,14 +35,26 @@ func main() {
 	flag.BoolVar(&firstRun, "init", false, "Initialize database")
 	flag.Parse()
 
+	// parse config
 	config, err := ReadConfig(configPath)
 	SetLogger(config.Log)
 	if err != nil {
-		log.Error().Err(err).Msg("read config failed, use default config instead")
+		log.Error().Err(err).Msg("failed to read config, use default config instead")
 	}
 	log.Debug().Any("config", config).Send()
 
-	server := web.NewServer(ptr(log.With().Str("comp", "web").Logger()))
+	// connect database
+	database, err := storage.NewStorage(config.Database.Type, config.Database.Url, ptr(log.With().Str("comp", "storage").Logger()))
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to connect database")
+	}
+
+	// serve http
+	server, err := web.NewServer(database, ptr(log.With().Str("comp", "web").Logger()))
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to create web server")
+	}
+
 	go func() {
 		if err := server.Serve(); err != nil {
 			if !errors.Is(err, http.ErrServerClosed) {
