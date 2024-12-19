@@ -36,6 +36,7 @@ func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger(logger))
+	r.Use(middleware.WithCors)
 	r.Mount("/_hotaru", s.hotaruRouter())
 
 	s.http.Handler = r
