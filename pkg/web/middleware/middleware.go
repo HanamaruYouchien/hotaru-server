@@ -1,6 +1,8 @@
 package middleware
 
-import "net/http"
+import (
+	"net/http"
+)
 
 func WithHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -13,4 +15,15 @@ func WithHeaders(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+func MaxBodyLength(length int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			rr := new(http.Request)
+			*rr = *r
+			rr.Body = http.MaxBytesReader(w, rr.Body, length)
+			next.ServeHTTP(w, rr)
+		})
+	}
 }
