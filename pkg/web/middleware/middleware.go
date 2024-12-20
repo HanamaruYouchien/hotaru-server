@@ -58,3 +58,7 @@ func Bind[T any]() func(http.Handler) http.Handler {
 		})
 	}
 }
+
+func GetObject(r *http.Request) any {
+	return r.Context().Value(CtxKeyObject)
+}

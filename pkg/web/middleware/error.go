@@ -14,6 +14,13 @@ func ErrorTooLarge(w http.ResponseWriter) {
 	w.Write(raw)
 }
 
+func ErrorForbidden(w http.ResponseWriter) {
+	resp := &model.ResponseError{ErrCode: model.ErrCodeForbidden}
+	raw, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusForbidden)
+	w.Write(raw)
+}
+
 func ErrorNotJson(w http.ResponseWriter) {
 	resp := &model.ResponseError{ErrCode: model.ErrCodeNotJson}
 	raw, _ := json.Marshal(resp)

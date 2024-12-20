@@ -20,6 +20,8 @@ type Server struct {
 	db     *storage.Storage
 }
 
+const maxBodySize = 10 * 1024 * 1024
+
 func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 	if db == nil {
 		return nil, ErrInvalidStorage
@@ -35,8 +37,7 @@ func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 	}
 
 	r := chi.NewRouter()
-	r.Use(middleware.Logger(logger))
-	r.Use(middleware.WithHeaders)
+	r.Use(middleware.Logger(logger), middleware.WithHeaders, middleware.MaxBodyLength(maxBodySize))
 	r.Mount("/_matrix", s.matrixRouters())
 	r.Mount("/_hotaru", s.hotaruRouters())
 
