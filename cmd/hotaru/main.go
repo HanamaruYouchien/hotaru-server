@@ -48,6 +48,12 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to connect database")
 	}
+	if firstRun {
+		if err := database.Init(); err != nil {
+			log.Fatal().Err(err).Msg("failed to init database")
+		}
+		log.Info().Msg("database init ok")
+	}
 
 	// serve http
 	server, err := web.NewServer(database, ptr(log.With().Str("comp", "web").Logger()))

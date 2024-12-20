@@ -42,3 +42,7 @@ func parseDriverName(engineType string) string {
 	}
 	return engineType
 }
+
+func (db *Storage) Init() error {
+	return db.engine.CreateTables(&Account{})
+}
