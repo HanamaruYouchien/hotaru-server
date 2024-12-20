@@ -28,6 +28,13 @@ func ErrorBadJson(w http.ResponseWriter) {
 	w.Write(raw)
 }
 
+func ErrorUserInUse(w http.ResponseWriter) {
+	resp := &model.ResponseError{ErrCode: model.ErrCodeUserInUse}
+	raw, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(raw)
+}
+
 func ErrorUnknown(w http.ResponseWriter) {
 	resp := &model.ResponseError{ErrCode: model.ErrCodeUnknown}
 	raw, _ := json.Marshal(resp)

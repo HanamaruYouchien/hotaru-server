@@ -19,7 +19,7 @@ const (
 
 	ErrCodeUnauthorized                = "M_UNAUTHORIZED"
 	ErrCodeUserDeactivated             = "M_USER_DEACTIVATED"
-	ErrCodeInUse                       = "M_USER_IN_USE"
+	ErrCodeUserInUse                   = "M_USER_IN_USE"
 	ErrCodeRoomState                   = "M_INVALID_ROOM_STATE"
 	ErrCodeThreepidInUse               = "M_THREEPID_IN_USE"
 	ErrCodeThreepidNotFound            = "M_THREEPID_NOT_FOUND"

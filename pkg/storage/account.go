@@ -14,6 +14,7 @@ type Account struct {
 	Salt          string
 	CreatedAt     time.Time `xorm:"created"`
 	IsDeactivated bool
+	IsLocked      bool
 	Type          AccountType
 }
 
@@ -27,6 +28,7 @@ const (
 var ErrPasswordTooWeak = errors.New("password too weak")
 var ErrAccountNotExist = errors.New("account not exist")
 var ErrPasswordNotCorrect = errors.New("username or password not correct")
+var ErrUserInUse = errors.New("user id is already taken")
 
 func (db *Storage) CreateAccount(localpart, password string, accountType AccountType) error {
 	if !validatePasswordStrength(password) {
@@ -49,7 +51,7 @@ func (db *Storage) CreateAccount(localpart, password string, accountType Account
 	return err
 }
 
-func (db *Storage) ValidateAccount(localpart, password string) error {
+func (db *Storage) VerifyAccount(localpart, password string) error {
 	account := &Account{}
 	isFind, err := db.engine.ID(localpart).Get(account)
 	if err != nil {
@@ -65,6 +67,19 @@ func (db *Storage) ValidateAccount(localpart, password string) error {
 	}
 	if !crypto.VerifyPassword(account.PasswordHash, password, saltBytes) {
 		return ErrPasswordNotCorrect
+	}
+	return nil
+}
+
+func (db *Storage) ValidateLocalpart(localpart string) error {
+	// TODO: validate localpart format(https://spec.matrix.org/v1.12/appendices/#common-identifier-format)
+	has, err := db.engine.ID(localpart).Exist(&Account{})
+	if err != nil {
+		return err
+	}
+
+	if has {
+		return ErrUserInUse
 	}
 	return nil
 }
