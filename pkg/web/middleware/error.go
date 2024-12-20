@@ -10,5 +10,27 @@ import (
 func ErrorTooLarge(w http.ResponseWriter) {
 	resp := &model.ResponseError{ErrCode: model.ErrCodeTooLarge}
 	raw, _ := json.Marshal(resp)
-	http.Error(w, string(raw), http.StatusRequestEntityTooLarge)
+	w.WriteHeader(http.StatusRequestEntityTooLarge)
+	w.Write(raw)
+}
+
+func ErrorNotJson(w http.ResponseWriter) {
+	resp := &model.ResponseError{ErrCode: model.ErrCodeNotJson}
+	raw, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(raw)
+}
+
+func ErrorBadJson(w http.ResponseWriter) {
+	resp := &model.ResponseError{ErrCode: model.ErrCodeBadJson}
+	raw, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(raw)
+}
+
+func ErrorUnknown(w http.ResponseWriter) {
+	resp := &model.ResponseError{ErrCode: model.ErrCodeUnknown}
+	raw, _ := json.Marshal(resp)
+	w.WriteHeader(http.StatusBadRequest)
+	w.Write(raw)
 }
