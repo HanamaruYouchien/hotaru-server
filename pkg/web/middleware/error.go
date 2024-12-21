@@ -1,50 +1,45 @@
 package middleware
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"hotaru.hana.im/server/pkg/web/model"
 )
 
+func Error(w http.ResponseWriter, status int, errCode string, msg string) {
+	w.WriteHeader(status)
+	resp := &model.ResponseError{ErrCode: errCode, Error: msg}
+	RenderJSON(w, resp)
+}
+
 func ErrorTooLarge(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeTooLarge}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusRequestEntityTooLarge)
-	w.Write(raw)
+	Error(w, http.StatusRequestEntityTooLarge, model.ErrCodeTooLarge, "")
+}
+
+func ErrorForbiddenMsg(w http.ResponseWriter, msg string) {
+	Error(w, http.StatusForbidden, model.ErrCodeForbidden, msg)
 }
 
 func ErrorForbidden(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeForbidden}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusForbidden)
-	w.Write(raw)
+	ErrorForbiddenMsg(w, "")
 }
 
 func ErrorNotJson(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeNotJson}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write(raw)
+	Error(w, http.StatusBadRequest, model.ErrCodeNotJson, "")
 }
 
 func ErrorBadJson(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeBadJson}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write(raw)
+	Error(w, http.StatusBadRequest, model.ErrCodeBadJson, "")
 }
 
 func ErrorUserInUse(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeUserInUse}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write(raw)
+	Error(w, http.StatusBadRequest, model.ErrCodeUserInUse, "username is already taken")
+}
+
+func ErrorUnknownMsg(w http.ResponseWriter, msg string) {
+	Error(w, http.StatusBadRequest, model.ErrCodeUnknown, msg)
 }
 
 func ErrorUnknown(w http.ResponseWriter) {
-	resp := &model.ResponseError{ErrCode: model.ErrCodeUnknown}
-	raw, _ := json.Marshal(resp)
-	w.WriteHeader(http.StatusBadRequest)
-	w.Write(raw)
+	ErrorUnknownMsg(w, "")
 }

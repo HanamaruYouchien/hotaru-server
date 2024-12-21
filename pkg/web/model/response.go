@@ -81,6 +81,7 @@ type ResponseGetToken struct {
 	LoginToken  string `json:"login_token"`
 }
 
+// Interactive Auth API
 // ResponseGetTokenUnauthorized, ResponseDeactivateUnauthorized, ResponsePasswordUnauthorized, ResponseRegisterUnauthorized, Response3pidAddUnauthorized
 type ResponseUnauthorized struct {
 	Completed []string          `json:"completed,omitempty"`

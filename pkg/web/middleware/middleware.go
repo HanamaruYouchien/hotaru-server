@@ -62,3 +62,8 @@ func Bind[T any]() func(http.Handler) http.Handler {
 func GetObject(r *http.Request) any {
 	return r.Context().Value(CtxKeyObject)
 }
+
+func RenderJSON(w http.ResponseWriter, resp any) {
+	raw, _ := json.Marshal(resp)
+	w.Write(raw)
+}

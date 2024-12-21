@@ -2,7 +2,6 @@ package web
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -33,8 +32,7 @@ func (s *Server) apiRegisterAvailable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &model.ResponseRegisterAvailable{Available: true}
-	raw, _ := json.Marshal(resp)
-	w.Write(raw)
+	middleware.RenderJSON(w, resp)
 }
 
 func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -60,6 +58,5 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		AccessToken: hex.EncodeToString(ak),
 		DeviceID:    hex.EncodeToString(devID),
 	}
-	raw, _ := json.Marshal(resp)
-	w.Write(raw)
+	middleware.RenderJSON(w, resp)
 }
