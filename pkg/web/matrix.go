@@ -16,6 +16,7 @@ func (s *Server) matrixRouters() *chi.Mux {
 	r := chi.NewRouter()
 	r.Get("/client/versions", clientVersionsHandler)
 	r.Get("/client/v3/register/available", s.apiRegisterAvailable)
+	r.Get("/client/v3/login", s.apiLoginGet)
 	r.With(middleware.Bind[model.RequestLogin]()).Post("/client/v3/login", s.apiLoginPost)
 	return r
 }
@@ -57,6 +58,15 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		UserID:      form.Identifier.User,
 		AccessToken: hex.EncodeToString(ak),
 		DeviceID:    hex.EncodeToString(devID),
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiLoginGet(w http.ResponseWriter, _ *http.Request) {
+	resp := &model.ResponseLoginGet{
+		Flows: []model.LoginFlow{
+			{Type: model.AuthenticationTypePassword},
+		},
 	}
 	middleware.RenderJSON(w, resp)
 }
