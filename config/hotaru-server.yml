@@ -1,3 +1,5 @@
+domain: example.com
+
 log:
   level: debug
   pretty: true

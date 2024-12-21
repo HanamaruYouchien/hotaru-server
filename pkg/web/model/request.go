@@ -15,16 +15,6 @@ const (
 	IdentifierTypePhone      = "m.id.phone"
 )
 
-type RequestInteractiveAuthentication struct {
-	Type          string          `json:"type"`
-	Session       string          `json:"session"`
-	Identifier    Identifier      `json:"identifier,omitempty"`
-	ThreepidCreds Request3pidBind `json:"threepid_creds,omitempty"`
-	Password      string          `json:"password,omitempty"`
-	Response      string          `json:"response,omitempty"`
-	Token         string          `json:"token,omitempty"`
-}
-
 type Identifier struct {
 	Type    string `json:"type"`
 	User    string `json:"user,omitempty"`
@@ -48,9 +38,15 @@ type RequestGetToken struct {
 	Auth AuthenticationData `json:"auth"`
 }
 
+// Interactive Auth API
 type AuthenticationData struct {
-	Session string `json:"session"`
-	Type    string `json:"type"`
+	Type          string          `json:"type"`
+	Session       string          `json:"session"`
+	Identifier    Identifier      `json:"identifier,omitempty"`
+	ThreepidCreds Request3pidBind `json:"threepid_creds,omitempty"`
+	Password      string          `json:"password,omitempty"`
+	Response      string          `json:"response,omitempty"`
+	Token         string          `json:"token,omitempty"`
 	// TODO: Fallback
 }
 

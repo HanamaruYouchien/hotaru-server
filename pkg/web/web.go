@@ -15,6 +15,7 @@ import (
 var ErrInvalidStorage = errors.New("invalid storage")
 
 type Server struct {
+	domain string
 	http   *http.Server
 	logger *zerolog.Logger
 	db     *storage.Storage
@@ -22,7 +23,7 @@ type Server struct {
 
 const maxBodySize = 10 * 1024 * 1024
 
-func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
+func NewServer(domain string, db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 	if db == nil {
 		return nil, ErrInvalidStorage
 	}
@@ -31,6 +32,7 @@ func NewServer(db *storage.Storage, logger *zerolog.Logger) (*Server, error) {
 	}
 
 	s := &Server{
+		domain: domain,
 		http:   &http.Server{Addr: ":8009"},
 		logger: logger,
 		db:     db,

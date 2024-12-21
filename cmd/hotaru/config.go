@@ -7,6 +7,7 @@ import (
 )
 
 var defaultConfig = Config{
+	Domain: "example.com",
 	Log: ConfigLog{
 		Level:  "info",
 		Pretty: true,
@@ -18,6 +19,7 @@ var defaultConfig = Config{
 }
 
 type Config struct {
+	Domain   string
 	Log      ConfigLog
 	Database ConfigDatabase
 }

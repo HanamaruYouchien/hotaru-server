@@ -36,6 +36,14 @@ func ErrorUserInUse(w http.ResponseWriter) {
 	Error(w, http.StatusBadRequest, model.ErrCodeUserInUse, "username is already taken")
 }
 
+func ErrorInvalidUsername(w http.ResponseWriter) {
+	Error(w, http.StatusBadRequest, model.ErrCodeInvalidUsername, "invalid username")
+}
+
+func ErrorWeakPassword(w http.ResponseWriter) {
+	Error(w, http.StatusForbidden, model.ErrCodeWeakPassword, "password too weak")
+}
+
 func ErrorUnknownMsg(w http.ResponseWriter, msg string) {
 	Error(w, http.StatusBadRequest, model.ErrCodeUnknown, msg)
 }

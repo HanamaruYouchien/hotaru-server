@@ -3,6 +3,7 @@ package storage
 import (
 	"encoding/hex"
 	"errors"
+	"regexp"
 	"time"
 
 	"hotaru.hana.im/server/pkg/crypto"
@@ -25,14 +26,21 @@ const (
 	AccountTypeAdmin
 )
 
-var ErrPasswordTooWeak = errors.New("password too weak")
-var ErrAccountNotExist = errors.New("account not exist")
-var ErrPasswordNotCorrect = errors.New("username or password not correct")
-var ErrUserInUse = errors.New("user id is already taken")
+var (
+	ErrPasswordTooWeak    = errors.New("password too weak")
+	ErrAccountNotExist    = errors.New("account not exist")
+	ErrPasswordNotCorrect = errors.New("username or password not correct")
+	ErrUserInUse          = errors.New("user id is already taken")
+	ErrInvalidUsername    = errors.New("invalid username")
+)
 
 func (db *Storage) CreateAccount(localpart, password string, accountType AccountType) error {
 	if !validatePasswordStrength(password) {
 		return ErrPasswordTooWeak
+	}
+
+	if err := db.ValidateLocalpart(localpart); err != nil {
+		return err
 	}
 
 	salt, err := crypto.GeneratePasswordSalt()
@@ -72,7 +80,10 @@ func (db *Storage) VerifyAccount(localpart, password string) error {
 }
 
 func (db *Storage) ValidateLocalpart(localpart string) error {
-	// TODO: validate localpart format(https://spec.matrix.org/v1.12/appendices/#common-identifier-format)
+	if err := validateLocalpart(localpart); err != nil {
+		return err
+	}
+
 	has, err := db.engine.ID(localpart).Exist(&Account{})
 	if err != nil {
 		return err
@@ -80,6 +91,17 @@ func (db *Storage) ValidateLocalpart(localpart string) error {
 
 	if has {
 		return ErrUserInUse
+	}
+	return nil
+}
+
+var localpartValidator = regexp.MustCompile(`^[0-9a-z_\-+=./]+$`)
+
+const MaxLocalpartLength = 255
+
+func validateLocalpart(localpart string) error {
+	if len(localpart) > MaxLocalpartLength || !localpartValidator.MatchString(localpart) {
+		return ErrInvalidUsername
 	}
 	return nil
 }

@@ -18,15 +18,19 @@ func (s *Server) matrixRouters() *chi.Mux {
 	r.Get("/client/v3/register/available", s.apiRegisterAvailable)
 	r.Get("/client/v3/login", s.apiLoginGet)
 	r.With(middleware.Bind[model.RequestLogin]()).Post("/client/v3/login", s.apiLoginPost)
+	r.With(middleware.Bind[model.RequestRegister]()).Post("/client/v3/register", s.apiRegister)
 	return r
 }
 
 func (s *Server) apiRegisterAvailable(w http.ResponseWriter, r *http.Request) {
 	username := r.URL.Query().Get("username")
 	if err := s.db.ValidateLocalpart(username); err != nil {
-		if errors.Is(err, storage.ErrUserInUse) {
+		switch {
+		case errors.Is(err, storage.ErrUserInUse):
 			middleware.ErrorUserInUse(w)
-		} else {
+		case errors.Is(err, storage.ErrInvalidUsername):
+			middleware.ErrorInvalidUsername(w)
+		default:
 			middleware.ErrorUnknown(w)
 		}
 		return
@@ -46,7 +50,11 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := s.db.VerifyAccount(form.Identifier.User, form.Password); err != nil {
-		middleware.ErrorForbidden(w)
+		if errors.Is(err, storage.ErrAccountNotExist) || errors.Is(err, storage.ErrPasswordNotCorrect) {
+			middleware.ErrorForbiddenMsg(w, "username or password not correct")
+		} else {
+			middleware.ErrorForbidden(w)
+		}
 		return
 	}
 
@@ -67,6 +75,28 @@ func (s *Server) apiLoginGet(w http.ResponseWriter, _ *http.Request) {
 		Flows: []model.LoginFlow{
 			{Type: model.AuthenticationTypePassword},
 		},
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
+	form := middleware.GetObject(r).(*model.RequestRegister)
+	if err := s.db.CreateAccount(form.Username, form.Password, storage.AccountTypeUser); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrPasswordTooWeak):
+			middleware.ErrorWeakPassword(w)
+		case errors.Is(err, storage.ErrUserInUse):
+			middleware.ErrorUserInUse(w)
+		case errors.Is(err, storage.ErrInvalidUsername):
+			middleware.ErrorInvalidUsername(w)
+		default:
+			middleware.ErrorUnknown(w)
+		}
+		return
+	}
+
+	resp := &model.ResponseRegister{
+		UserID: "@" + form.Username + ":" + s.domain,
 	}
 	middleware.RenderJSON(w, resp)
 }
