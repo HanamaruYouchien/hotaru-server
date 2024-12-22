@@ -15,18 +15,18 @@ const CtxKeyAccount = "account"
 func Auth(db *storage.Storage) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			authHeader := strings.ToLower(r.Header.Get("Authorization"))
+			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
 				ErrorMissingToken(w)
 				return
 			}
-			if !strings.HasPrefix(authHeader, "bearer ") {
+			if !strings.HasPrefix(authHeader, "Bearer ") {
 				ErrorUnknownToken(w)
 				return
 			}
 
-			accessToken := strings.TrimPrefix(authHeader, "bearer ")
-			accessToken = strings.TrimSpace(authHeader)
+			accessToken := strings.TrimPrefix(authHeader, "Bearer ")
+			accessToken = strings.TrimSpace(accessToken)
 
 			dev, err := db.GetDeviceByAccessToken(accessToken)
 			if err != nil {

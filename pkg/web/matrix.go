@@ -18,6 +18,8 @@ func (s *Server) matrixRouters() *chi.Mux {
 	r.Get("/client/v3/login", s.apiLoginGet)
 	r.With(middleware.Bind[model.RequestLogin]()).Post("/client/v3/login", s.apiLoginPost)
 	r.With(middleware.Bind[model.RequestRegister]()).Post("/client/v3/register", s.apiRegister)
+	r.With(middleware.Auth(s.db)).Post("/client/v3/logout", s.apiLogout)
+	r.With(middleware.Auth(s.db)).Post("/client/v3/logout/all", s.apiLogoutAll)
 	return r
 }
 
@@ -127,4 +129,24 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 		DeviceID:    form.DeviceID,
 	}
 	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiLogout(w http.ResponseWriter, r *http.Request) {
+	device := middleware.GetDevice(r)
+	err := s.db.DeleteDevice(device.Localpart, device.DeviceID)
+	if err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiLogoutAll(w http.ResponseWriter, r *http.Request) {
+	device := middleware.GetDevice(r)
+	err := s.db.DeleteDeviceByLocalpart(device.Localpart)
+	if err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
 }
