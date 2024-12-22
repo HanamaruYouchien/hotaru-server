@@ -11,6 +11,7 @@ import (
 
 const CtxKeyLogger = "logger"
 
+// Logger should go before any other middleware that may change the response
 func Logger(l *zerolog.Logger) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

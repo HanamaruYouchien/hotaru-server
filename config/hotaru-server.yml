@@ -4,6 +4,15 @@ log:
   level: debug
   pretty: true
 
+# support postgresql, mariadb, sqlite, mysql
 database:
-  type: postgresql # support postgresql, mariadb, sqlite, mysql
+  type: postgresql
   url: postgres://hotaru:hotaru@127.0.0.1/hotaru
+
+  # mariadb
+  # type: mariadb
+  # url: hotaru:hotaru@/hotaru
+
+  # sqlite
+  # type: sqlite
+  # url: ./build/hotaru.db
