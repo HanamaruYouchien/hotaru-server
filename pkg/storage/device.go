@@ -17,6 +17,7 @@ type Device struct {
 }
 
 var ErrDeviceNotExist = errors.New("device not exist")
+var ErrEmptyAccessToken = errors.New("empty access token")
 
 func (db *Storage) CreateDevice(localpart, deviceID, displayName string) (accessToken string, err error) {
 	if accessToken, err = crypto.GenerateAccessToken(); err != nil {
@@ -56,4 +57,23 @@ func (db *Storage) IsDeviceExist(localpart, deviceID string) error {
 		return ErrDeviceNotExist
 	}
 	return nil
+}
+
+func (db *Storage) GetDeviceByAccessToken(accessToken string) (*Device, error) {
+	if accessToken == "" {
+		return nil, ErrEmptyAccessToken
+	}
+
+	dev := &Device{
+		AccessToken: accessToken,
+	}
+	has, err := db.engine.Get(dev)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrDeviceNotExist
+	}
+
+	return dev, nil
 }

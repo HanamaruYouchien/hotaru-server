@@ -39,6 +39,7 @@ func NewServer(domain string, db *storage.Storage, logger *zerolog.Logger) (*Ser
 	}
 
 	r := chi.NewRouter()
+	// TODO: replave with cors.Handler
 	r.Use(middleware.Logger(logger), middleware.WithHeaders, middleware.MaxBodyLength(maxBodySize))
 	r.Mount("/_matrix", s.matrixRouters())
 	r.Mount("/_hotaru", s.hotaruRouters())

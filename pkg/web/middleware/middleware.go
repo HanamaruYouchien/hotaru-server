@@ -14,7 +14,7 @@ func WithHeaders(next http.Handler) http.Handler {
 		header.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		header.Add("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Authorization")
 
-		header.Add("Content-Type", "application/json; charset=utf-8")
+		// header.Add("Content-Type", "application/json; charset=utf-8")
 
 		next.ServeHTTP(w, r)
 	})
@@ -64,7 +64,15 @@ func GetObject(r *http.Request) any {
 }
 
 func RenderJSON(w http.ResponseWriter, resp any) {
-	w.Header().Add("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	raw, _ := json.Marshal(resp)
+	w.Write(raw)
+}
+
+// Changing the header map after a call to WriteHeader has no effect
+func RenderJSONWithStatusCode(w http.ResponseWriter, status int, resp any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
 	raw, _ := json.Marshal(resp)
 	w.Write(raw)
 }

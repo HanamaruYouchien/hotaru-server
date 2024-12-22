@@ -7,9 +7,8 @@ import (
 )
 
 func Error(w http.ResponseWriter, status int, errCode string, msg string) {
-	w.WriteHeader(status)
 	resp := &model.ResponseError{ErrCode: errCode, Error: msg}
-	RenderJSON(w, resp)
+	RenderJSONWithStatusCode(w, status, resp)
 }
 
 func ErrorTooLarge(w http.ResponseWriter) {
@@ -42,6 +41,14 @@ func ErrorInvalidUsername(w http.ResponseWriter) {
 
 func ErrorWeakPassword(w http.ResponseWriter) {
 	Error(w, http.StatusForbidden, model.ErrCodeWeakPassword, "password too weak")
+}
+
+func ErrorMissingToken(w http.ResponseWriter) {
+	Error(w, http.StatusUnauthorized, model.ErrCodeMissingToken, "")
+}
+
+func ErrorUnknownToken(w http.ResponseWriter) {
+	Error(w, http.StatusUnauthorized, model.ErrCodeUnknownToken, "")
 }
 
 func ErrorUnknownMsg(w http.ResponseWriter, msg string) {

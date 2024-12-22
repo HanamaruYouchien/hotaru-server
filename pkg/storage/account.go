@@ -59,6 +59,18 @@ func (db *Storage) CreateAccount(localpart, password string, accountType Account
 	return err
 }
 
+func (db *Storage) GetAccount(localpart string) (*Account, error) {
+	account := &Account{}
+	has, err := db.engine.ID(localpart).Get(account)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrAccountNotExist
+	}
+	return account, nil
+}
+
 func (db *Storage) VerifyAccount(localpart, password string) error {
 	account := &Account{}
 	isFind, err := db.engine.ID(localpart).Get(account)
