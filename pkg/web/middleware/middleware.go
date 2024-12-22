@@ -14,6 +14,8 @@ func WithHeaders(next http.Handler) http.Handler {
 		header.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		header.Add("Access-Control-Allow-Headers", "X-Requested-With, Content-Type, Authorization")
 
+		header.Add("Content-Type", "application/json; charset=utf-8")
+
 		next.ServeHTTP(w, r)
 	})
 }

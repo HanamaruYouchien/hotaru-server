@@ -9,6 +9,7 @@ const (
 	AuthenticationTypeDummy              = "m.login.dummy"
 	AuthenticationTypeRegistrationToken  = "m.login.registration_token"
 	AuthenticationTypeApplicationService = "m.login.application_service"
+	AuthenticationTypeToken              = "m.login.token"
 
 	IdentifierTypeUser       = "m.id.user"
 	IdentifierTypeThirdParty = "m.id.thirdparty"

@@ -30,6 +30,11 @@ func NewStorage(engineType, engineUrl string, logger *zerolog.Logger) (*Storage,
 		return nil, err
 	}
 
+	// sync db
+	if err := eng.Sync(&Account{}, &Device{}); err != nil {
+		return nil, err
+	}
+
 	return &Storage{logger: logger, engine: eng}, nil
 }
 
@@ -44,5 +49,9 @@ func parseDriverName(engineType string) string {
 }
 
 func (db *Storage) Init() error {
-	return db.engine.CreateTables(&Account{})
+	if err := db.engine.Sync(&Account{}, &Device{}); err != nil {
+		return err
+	}
+	db.engine.Exec("ALTER TABLE device ADD CONSTRAINT device_localpart_fkey FOREIGN KEY (localpart) REFERENCES account(localpart) ON DELETE CASCADE ON UPDATE CASCADE;")
+	return nil
 }

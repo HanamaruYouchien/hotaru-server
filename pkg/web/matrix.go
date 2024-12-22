@@ -1,7 +1,6 @@
 package web
 
 import (
-	"encoding/hex"
 	"errors"
 	"net/http"
 
@@ -58,14 +57,32 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: put token into db
-	ak, _ := crypto.CryptoRandomBytes(128)
-	devID, _ := crypto.CryptoRandomBytes(16)
+	var accessToken string
+	if err := s.db.IsDeviceExist(form.Identifier.User, form.DeviceID); err != nil {
+		if !errors.Is(err, storage.ErrDeviceNotExist) {
+			middleware.ErrorUnknown(w)
+			return
+		}
+		if form.DeviceID == "" {
+			form.DeviceID, _ = crypto.GenerateDeviceID()
+		}
+		accessToken, err = s.db.CreateDevice(form.Identifier.User, form.DeviceID, form.InitialDeviceDisplayName)
+		if err != nil {
+			middleware.ErrorUnknown(w)
+			return
+		}
+	} else {
+		accessToken, err = s.db.UpdateAccessToken(form.Identifier.User, form.DeviceID, form.InitialDeviceDisplayName)
+		if err != nil {
+			middleware.ErrorUnknown(w)
+			return
+		}
+	}
 
 	resp := &model.ResponseLoginPost{
-		UserID:      form.Identifier.User,
-		AccessToken: hex.EncodeToString(ak),
-		DeviceID:    hex.EncodeToString(devID),
+		UserID:      "@" + form.Identifier.User + ":" + s.domain,
+		AccessToken: accessToken,
+		DeviceID:    form.DeviceID,
 	}
 	middleware.RenderJSON(w, resp)
 }
@@ -95,8 +112,19 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if form.DeviceID == "" {
+		form.DeviceID, _ = crypto.GenerateDeviceID()
+	}
+	accessToken, err := s.db.CreateDevice(form.Username, form.DeviceID, form.InitialDeviceDisplayName)
+	if err != nil {
+		middleware.ErrorUnknown(w)
+		return
+	}
+
 	resp := &model.ResponseRegister{
-		UserID: "@" + form.Username + ":" + s.domain,
+		UserID:      "@" + form.Username + ":" + s.domain,
+		AccessToken: accessToken,
+		DeviceID:    form.DeviceID,
 	}
 	middleware.RenderJSON(w, resp)
 }
