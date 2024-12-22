@@ -9,15 +9,21 @@ import (
 	"hotaru.hana.im/server/pkg/storage"
 )
 
+const CtxKeyAuth = "authentication"
 const CtxKeyDevice = "device"
 const CtxKeyAccount = "account"
 
-func Auth(db *storage.Storage) func(http.Handler) http.Handler {
+func Auth(db *storage.Storage, required bool) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" {
-				ErrorMissingToken(w)
+			if authHeader == "" { // no token
+				if required {
+					ErrorMissingToken(w)
+				} else {
+					rr := r.WithContext(context.WithValue(r.Context(), CtxKeyAuth, false))
+					next.ServeHTTP(w, rr)
+				}
 				return
 			}
 			if !strings.HasPrefix(authHeader, "Bearer ") {
@@ -52,7 +58,8 @@ func Auth(db *storage.Storage) func(http.Handler) http.Handler {
 				return
 			}
 
-			rr := r.WithContext(context.WithValue(r.Context(), CtxKeyAccount, account))
+			rr := r.WithContext(context.WithValue(r.Context(), CtxKeyAuth, true))
+			rr = r.WithContext(context.WithValue(rr.Context(), CtxKeyAccount, account))
 			rr = r.WithContext(context.WithValue(rr.Context(), CtxKeyDevice, dev))
 
 			next.ServeHTTP(w, rr)
@@ -60,10 +67,24 @@ func Auth(db *storage.Storage) func(http.Handler) http.Handler {
 	}
 }
 
+func AuthRequired(db *storage.Storage) func(http.Handler) http.Handler {
+	return Auth(db, true)
+}
+
+func AuthOptional(db *storage.Storage) func(http.Handler) http.Handler {
+	return Auth(db, false)
+}
+
+func IsAuthenticated(r *http.Request) bool {
+	return r.Context().Value(CtxKeyAuth).(bool)
+}
+
 func GetDevice(r *http.Request) *storage.Device {
-	return r.Context().Value(CtxKeyDevice).(*storage.Device)
+	dev, _ := r.Context().Value(CtxKeyDevice).(*storage.Device)
+	return dev
 }
 
 func GetAccount(r *http.Request) *storage.Account {
-	return r.Context().Value(CtxKeyAccount).(*storage.Account)
+	acc, _ := r.Context().Value(CtxKeyAccount).(*storage.Account)
+	return acc
 }

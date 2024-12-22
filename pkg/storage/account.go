@@ -107,6 +107,27 @@ func (db *Storage) ValidateLocalpart(localpart string) error {
 	return nil
 }
 
+func (db *Storage) ChangePassword(localpart, newPassword string) error {
+	if localpart == "" {
+		return ErrEmptyLocalpart
+	}
+	account, err := db.GetAccount(localpart)
+	if err != nil {
+		return err
+	}
+	return db.ChangeAccountPassword(account, newPassword)
+}
+
+func (db *Storage) ChangeAccountPassword(account *Account, newPassword string) error {
+	saltBytes, err := hex.DecodeString(account.Salt)
+	if err != nil {
+		return err
+	}
+
+	_, err = db.engine.ID(account.Localpart).Update(&Account{PasswordHash: crypto.HashWithSalt(newPassword, saltBytes)})
+	return err
+}
+
 var localpartValidator = regexp.MustCompile(`^[0-9a-z_\-+=./]+$`)
 
 const MaxLocalpartLength = 255

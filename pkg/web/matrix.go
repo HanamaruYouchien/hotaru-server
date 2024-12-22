@@ -18,8 +18,9 @@ func (s *Server) matrixRouters() *chi.Mux {
 	r.Get("/client/v3/login", s.apiLoginGet)
 	r.With(middleware.Bind[model.RequestLogin]()).Post("/client/v3/login", s.apiLoginPost)
 	r.With(middleware.Bind[model.RequestRegister]()).Post("/client/v3/register", s.apiRegister)
-	r.With(middleware.Auth(s.db)).Post("/client/v3/logout", s.apiLogout)
-	r.With(middleware.Auth(s.db)).Post("/client/v3/logout/all", s.apiLogoutAll)
+	r.With(middleware.AuthRequired(s.db)).Post("/client/v3/logout", s.apiLogout)
+	r.With(middleware.AuthRequired(s.db)).Post("/client/v3/logout/all", s.apiLogoutAll)
+	r.With(middleware.AuthOptional(s.db), middleware.Bind[model.RequestPassword]()).Post("/client/v3/account/password", s.apiChangePassword)
 	return r
 }
 
@@ -148,5 +149,22 @@ func (s *Server) apiLogoutAll(w http.ResponseWriter, r *http.Request) {
 		middleware.ErrorUnknownMsg(w, "unknown error")
 		return
 	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiChangePassword(w http.ResponseWriter, r *http.Request) {
+	if !middleware.IsAuthenticated(r) {
+		// TODO: use user-interactive authentication api
+		middleware.ErrorForbidden(w)
+	}
+	form := middleware.GetObject(r).(*model.RequestPassword)
+	account := middleware.GetAccount(r)
+
+	// TODO: soft logout
+	if err := s.db.ChangeAccountPassword(account, form.NewPassword); err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
+
 	middleware.RenderJSON(w, &struct{}{})
 }
