@@ -21,6 +21,7 @@ func (s *Server) matrixRouters() *chi.Mux {
 	r.With(middleware.AuthRequired(s.db)).Post("/client/v3/logout", s.apiLogout)
 	r.With(middleware.AuthRequired(s.db)).Post("/client/v3/logout/all", s.apiLogoutAll)
 	r.With(middleware.AuthOptional(s.db), middleware.Bind[model.RequestPassword]()).Post("/client/v3/account/password", s.apiChangePassword)
+	r.With(middleware.AuthRequired(s.db)).Get("/client/v3/account/whoami", s.apiWhoami)
 	return r
 }
 
@@ -83,7 +84,7 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &model.ResponseLoginPost{
-		UserID:      "@" + form.Identifier.User + ":" + s.domain,
+		UserID:      s.toUserID(form.Identifier.User),
 		AccessToken: accessToken,
 		DeviceID:    form.DeviceID,
 	}
@@ -125,7 +126,7 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &model.ResponseRegister{
-		UserID:      "@" + form.Username + ":" + s.domain,
+		UserID:      s.toUserID(form.Username),
 		AccessToken: accessToken,
 		DeviceID:    form.DeviceID,
 	}
@@ -167,4 +168,20 @@ func (s *Server) apiChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiWhoami(w http.ResponseWriter, r *http.Request) {
+	account := middleware.GetAccount(r)
+	device := middleware.GetDevice(r)
+
+	resp := &model.ResponseWhoami{
+		DeviceID: device.DeviceID,
+		IsGuest:  false,
+		UserID:   s.toUserID(account.Localpart),
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) toUserID(localpart string) string {
+	return "@" + localpart + ":" + s.domain
 }
