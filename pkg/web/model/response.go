@@ -138,3 +138,8 @@ type ResponseWhoami struct {
 	IsGuest  bool   `json:"is_guest,omitempty"`
 	UserID   string `json:"user_id"`
 }
+
+type ResponseProfile struct {
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	DisplayName string `json:"displayname"`
+}

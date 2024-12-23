@@ -3,7 +3,9 @@ package web
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
+	"github.com/go-chi/chi/v5"
 	"hotaru.hana.im/server/pkg/crypto"
 	"hotaru.hana.im/server/pkg/storage"
 	"hotaru.hana.im/server/pkg/web/middleware"
@@ -174,6 +176,47 @@ func (s *Server) apiWhoami(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, resp)
 }
 
+func (s *Server) apiProfile(w http.ResponseWriter, r *http.Request) {
+	userID := chi.URLParam(r, "userId")
+	localpart, domain, err := parseUserID(userID)
+	if err != nil {
+		middleware.ErrorNotFoundMsg(w, "invalid user id")
+		return
+	}
+
+	// TODO: check user info of other server
+	if domain != s.domain {
+		middleware.ErrorForbidden(w)
+	}
+
+	profile, err := s.db.GetProfile(localpart)
+	if err != nil {
+		if errors.Is(err, storage.ErrProfileNotExist) {
+			middleware.ErrorNotFoundMsg(w, "user profile not found")
+		} else {
+			middleware.ErrorUnknownMsg(w, "unknown error")
+		}
+		return
+	}
+
+	resp := &model.ResponseProfile{
+		DisplayName: profile.Localpart,
+		AvatarURL:   profile.AvatarUrl,
+	}
+	middleware.RenderJSON(w, resp)
+}
+
 func (s *Server) toUserID(localpart string) string {
 	return "@" + localpart + ":" + s.domain
+}
+
+var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
+var ErrInvalidUserID = errors.New("invalid user id")
+
+func parseUserID(userID string) (localpart, domain string, err error) {
+	matches := userIDParser.FindStringSubmatch(userID)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
 }
