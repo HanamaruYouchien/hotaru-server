@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/go-chi/httprate"
 )
 
 func WithHeaders(next http.Handler) http.Handler {
@@ -75,4 +78,8 @@ func RenderJSONWithStatusCode(w http.ResponseWriter, status int, resp any) {
 	w.WriteHeader(status)
 	raw, _ := json.Marshal(resp)
 	w.Write(raw)
+}
+
+func RateLimiter(maxRequests int, duration time.Duration) func(http.Handler) http.Handler {
+	return httprate.LimitByIP(maxRequests, duration)
 }
