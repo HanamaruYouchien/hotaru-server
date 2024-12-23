@@ -26,6 +26,8 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 
 	r.Get("/v3/profile/{userId}", s.apiProfileDefault())
 	r.Get("/v3/profile/{userId}/avatar_url", s.apiProfileAvatarURLGet())
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestProfileAvatarUrlPut]()).Put("/v3/profile/{userId}/avatar_url", s.apiProfileAvatarUrlPut())
 	r.Get("/v3/profile/{userId}/displayname", s.apiProfileDisplayNameGet())
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestProfileDisplayNamePut]()).Put("/v3/profile/{userId}/displayname", s.apiProfileDisplayNamePut())
 	return r
 }

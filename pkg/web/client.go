@@ -55,6 +55,7 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: try to update first?
 	var accessToken string
 	if err := s.db.IsDeviceExist(form.Identifier.User, form.DeviceID); err != nil {
 		if !errors.Is(err, storage.ErrDeviceNotExist) {
@@ -197,7 +198,7 @@ func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http
 			return
 		}
 
-		// TODO: check user info of other server
+		// TODO: get user profile from other server
 		if domain != s.domain {
 			middleware.ErrorForbidden(w)
 		}
@@ -224,6 +225,69 @@ func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http
 			AvatarURL:   profile.AvatarUrl,
 		}
 		middleware.RenderJSON(w, resp)
+	}
+}
+
+func (s *Server) apiProfileDisplayNamePut() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfileUpdate(true, false)
+}
+
+func (s *Server) apiProfileAvatarUrlPut() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfileUpdate(false, true)
+}
+
+func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := chi.URLParam(r, "userId")
+		localpart, domain, err := parseUserID(userID)
+		if err != nil {
+			middleware.ErrorNotFoundMsg(w, "invalid user id")
+			return
+		}
+
+		// TODO: get user profile from other server
+		if domain != s.domain {
+			middleware.ErrorForbidden(w)
+		}
+
+		account := middleware.GetAccount(r)
+		if account.Localpart != localpart {
+			middleware.ErrorForbiddenMsg(w, "no permission")
+		}
+
+		form := middleware.GetObject(r).(*model.RequestProfileUpdate)
+		if !enableDisplayName {
+			form.DisplayName = ""
+		}
+		if !enableAvatarURL {
+			form.AvatarUrl = ""
+		}
+
+		if err := s.db.IsProfileExist(localpart); err != nil {
+			if !errors.Is(err, storage.ErrProfileNotExist) {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+				return
+			}
+			if err := s.db.CreateProfile(localpart, form.DisplayName, form.AvatarUrl); err != nil {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+				return
+			}
+		} else {
+			if enableDisplayName {
+				if err := s.db.UpdateProfileDisplayName(localpart, form.DisplayName); err != nil {
+					middleware.ErrorUnknownMsg(w, "unknown error")
+					return
+				}
+			}
+			if enableAvatarURL {
+				if err := s.db.UpdateProfileAvatarUrl(localpart, form.AvatarUrl); err != nil {
+					middleware.ErrorUnknownMsg(w, "unknown error")
+					return
+				}
+			}
+		}
+
+		middleware.RenderJSON(w, &struct{}{})
 	}
 }
 

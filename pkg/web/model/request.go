@@ -118,3 +118,10 @@ type Request3pidDelete struct {
 	Medium   string `json:"medium"`
 }
 type Request3pidUnbind Request3pidDelete
+
+type RequestProfileUpdate struct {
+	DisplayName string `json:"displayname,omitempty"`
+	AvatarUrl   string `json:"avatar_url,omitempty"`
+}
+type RequestProfileDisplayNamePut RequestProfileUpdate
+type RequestProfileAvatarUrlPut RequestProfileUpdate

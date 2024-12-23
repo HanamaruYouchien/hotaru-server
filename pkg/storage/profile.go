@@ -42,3 +42,13 @@ func (db *Storage) IsProfileExist(localpart string) error {
 	}
 	return nil
 }
+
+func (db *Storage) UpdateProfileDisplayName(localpart, displayName string) error {
+	_, err := db.engine.ID(localpart).Cols("display_name").Update(&Profile{DisplayName: displayName})
+	return err
+}
+
+func (db *Storage) UpdateProfileAvatarUrl(localpart, avatarUrl string) error {
+	_, err := db.engine.ID(localpart).Cols("avatar_url").Update(&Profile{AvatarUrl: avatarUrl})
+	return err
+}
