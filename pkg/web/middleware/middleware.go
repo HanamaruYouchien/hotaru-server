@@ -81,5 +81,23 @@ func RenderJSONWithStatusCode(w http.ResponseWriter, status int, resp any) {
 }
 
 func RateLimiter(maxRequests int, duration time.Duration) func(http.Handler) http.Handler {
-	return httprate.LimitByIP(maxRequests, duration)
+	return func(next http.Handler) http.Handler {
+		limiter := httprate.LimitByIP(maxRequests, duration)
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			limited := false
+			limiter(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				limited = true
+				next.ServeHTTP(w, r)
+			})).ServeHTTP(w, r)
+			if limited {
+				w.Header().Set("Retry-After", duration.String())
+				w.WriteHeader(http.StatusTooManyRequests)
+				RenderJSON(w, map[string]interface{}{
+					"errcode":        "M_LIMIT_EXCEEDED",
+					"error":          "Rate limit exceeded",
+					"retry_after_ms": int(duration / time.Millisecond),
+				})
+			}
+		})
+	}
 }
