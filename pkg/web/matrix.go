@@ -24,6 +24,8 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.AuthOptional(s.db), middleware.Bind[model.RequestPassword]()).Post("/v3/account/password", s.apiChangePassword)
 	r.With(middleware.AuthRequired(s.db)).Get("/v3/account/whoami", s.apiWhoami)
 
-	r.Get("/v3/profile/{userId}", s.apiProfile)
+	r.Get("/v3/profile/{userId}", s.apiProfileDefault())
+	r.Get("/v3/profile/{userId}/avatar_url", s.apiProfileAvatarURLGet())
+	r.Get("/v3/profile/{userId}/displayname", s.apiProfileDisplayNameGet())
 	return r
 }

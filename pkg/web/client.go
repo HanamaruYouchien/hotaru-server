@@ -176,34 +176,55 @@ func (s *Server) apiWhoami(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, resp)
 }
 
-func (s *Server) apiProfile(w http.ResponseWriter, r *http.Request) {
-	userID := chi.URLParam(r, "userId")
-	localpart, domain, err := parseUserID(userID)
-	if err != nil {
-		middleware.ErrorNotFoundMsg(w, "invalid user id")
-		return
-	}
+func (s *Server) apiProfileDefault() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(true, true)
+}
 
-	// TODO: check user info of other server
-	if domain != s.domain {
-		middleware.ErrorForbidden(w)
-	}
+func (s *Server) apiProfileDisplayNameGet() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(true, false)
+}
 
-	profile, err := s.db.GetProfile(localpart)
-	if err != nil {
-		if errors.Is(err, storage.ErrProfileNotExist) {
-			middleware.ErrorNotFoundMsg(w, "user profile not found")
-		} else {
-			middleware.ErrorUnknownMsg(w, "unknown error")
+func (s *Server) apiProfileAvatarURLGet() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(false, true)
+}
+
+func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := chi.URLParam(r, "userId")
+		localpart, domain, err := parseUserID(userID)
+		if err != nil {
+			middleware.ErrorNotFoundMsg(w, "invalid user id")
+			return
 		}
-		return
-	}
 
-	resp := &model.ResponseProfile{
-		DisplayName: profile.Localpart,
-		AvatarURL:   profile.AvatarUrl,
+		// TODO: check user info of other server
+		if domain != s.domain {
+			middleware.ErrorForbidden(w)
+		}
+
+		profile, err := s.db.GetProfile(localpart)
+		if err != nil {
+			if errors.Is(err, storage.ErrProfileNotExist) {
+				middleware.ErrorNotFoundMsg(w, "user profile not found")
+			} else {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+			}
+			return
+		}
+
+		if !enableDisplayName {
+			profile.DisplayName = ""
+		}
+		if !enableAvatarURL {
+			profile.AvatarUrl = ""
+		}
+
+		resp := &model.ResponseProfile{
+			DisplayName: profile.DisplayName,
+			AvatarURL:   profile.AvatarUrl,
+		}
+		middleware.RenderJSON(w, resp)
 	}
-	middleware.RenderJSON(w, resp)
 }
 
 func (s *Server) toUserID(localpart string) string {

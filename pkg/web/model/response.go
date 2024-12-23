@@ -141,5 +141,5 @@ type ResponseWhoami struct {
 
 type ResponseProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
-	DisplayName string `json:"displayname"`
+	DisplayName string `json:"displayname,omitempty"`
 }
