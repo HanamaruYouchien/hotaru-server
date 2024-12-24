@@ -120,6 +120,8 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.db.CreateProfile(form.Username, form.Username, "")
+
 	resp := &model.ResponseRegister{
 		UserID:      s.toUserID(form.Username),
 		AccessToken: accessToken,
@@ -201,6 +203,7 @@ func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http
 		// TODO: get user profile from other server
 		if domain != s.domain {
 			middleware.ErrorForbidden(w)
+			return
 		}
 
 		profile, err := s.db.GetProfile(localpart)
@@ -263,6 +266,17 @@ func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(
 			form.AvatarUrl = ""
 		}
 
+		if enableDisplayName {
+			err = s.db.UpdateProfileDisplayName(localpart, form.DisplayName)
+		}
+		if enableAvatarURL {
+			err = s.db.UpdateProfileAvatarUrl(localpart, form.AvatarUrl)
+		}
+		if err == nil {
+			middleware.RenderJSON(w, &struct{}{})
+			return
+		}
+
 		if err := s.db.IsProfileExist(localpart); err != nil {
 			if !errors.Is(err, storage.ErrProfileNotExist) {
 				middleware.ErrorUnknownMsg(w, "unknown error")
@@ -289,6 +303,39 @@ func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(
 
 		middleware.RenderJSON(w, &struct{}{})
 	}
+}
+
+func (s *Server) apiUserDirectorySearch(w http.ResponseWriter, r *http.Request) {
+	form := middleware.GetObject(r).(*model.RequestUserDirectorySearch)
+	if form.SearchTerm == "" {
+		middleware.RenderJSON(w, &model.ResponseUserDirectorySearch{
+			Results: []model.User{},
+		})
+		return
+	}
+	if form.Limit == 0 { // default value
+		form.Limit = 10
+	}
+
+	profiles, err := s.db.SearchProfile(form.SearchTerm, form.Limit)
+	if err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
+
+	resp := &model.ResponseUserDirectorySearch{
+		Limited: len(profiles) == form.Limit,
+		Results: make([]model.User, 0, len(profiles)),
+	}
+	for _, v := range profiles {
+		resp.Results = append(resp.Results, model.User{
+			UserID:      s.toUserID(v.Localpart),
+			AvatarURL:   v.AvatarUrl,
+			DisplayName: v.DisplayName,
+		})
+	}
+
+	middleware.RenderJSON(w, resp)
 }
 
 func (s *Server) toUserID(localpart string) string {

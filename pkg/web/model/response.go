@@ -143,3 +143,14 @@ type ResponseProfile struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 	DisplayName string `json:"displayname,omitempty"`
 }
+
+type ResponseUserDirectorySearch struct {
+	Limited bool   `json:"limited"`
+	Results []User `json:"results"`
+}
+
+type User struct {
+	UserID      string `json:"user_id"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	DisplayName string `json:"displayname,omitempty"`
+}

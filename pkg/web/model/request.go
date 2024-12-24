@@ -125,3 +125,8 @@ type RequestProfileUpdate struct {
 }
 type RequestProfileDisplayNamePut RequestProfileUpdate
 type RequestProfileAvatarUrlPut RequestProfileUpdate
+
+type RequestUserDirectorySearch struct {
+	Limit      int    `json:"limit,omitempty"`
+	SearchTerm string `json:"search_term"`
+}

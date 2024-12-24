@@ -52,3 +52,12 @@ func (db *Storage) UpdateProfileAvatarUrl(localpart, avatarUrl string) error {
 	_, err := db.engine.ID(localpart).Cols("avatar_url").Update(&Profile{AvatarUrl: avatarUrl})
 	return err
 }
+
+func (db *Storage) SearchProfile(term string, limit int) ([]Profile, error) {
+	limit = min(limit, 20)
+	profiles := make([]Profile, 0)
+	if err := db.engine.Where("localpart LIKE ?", term+"%").Limit(limit).Find(&profiles); err != nil {
+		return nil, err
+	}
+	return profiles, nil
+}
