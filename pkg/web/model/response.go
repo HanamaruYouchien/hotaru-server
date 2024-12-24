@@ -154,3 +154,49 @@ type User struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 	DisplayName string `json:"displayname,omitempty"`
 }
+
+type ResponseRoom struct {
+	RoomID string `json:"room_id"`
+}
+type ResponseCreateRoom ResponseRoom
+type ResponseJoinRoom ResponseRoom
+type ResponseKnock ResponseRoom
+
+type ResponseDirectoryRoomGet struct {
+	RoomID  string   `json:"room_id"`
+	Servers []string `json:"servers"`
+}
+
+type ResponseRoomsAlias struct {
+	Aliases []string `json:"aliases"`
+}
+
+type ResponseJoinedRooms struct {
+	JoinedRooms []string `json:"joined_rooms"`
+}
+
+type ResponseDirectoryListRoomGet struct {
+	Visibility string `json:"visibility"`
+}
+
+type ResponsePublivkRooms struct {
+	Chunk                  PublicRoomsChunk `json:"chunk"`
+	NextBatch              string           `json:"next_batch"`
+	PrevBatch              string           `json:"prev_batch"`
+	TotalRoomCountEstimate int              `json:"total_room_count_estimate"`
+}
+type ResponsePublivkRoomsGet ResponsePublivkRooms
+type ResponsePublivkRoomsPost ResponsePublivkRooms
+
+type PublicRoomsChunk struct {
+	AvatarURL        string `json:"avatar_url,omitempty"`
+	CanonicalAlias   string `json:"canonical_alias,omitempty"`
+	GuestCanJoin     bool   `json:"guest_can_join"`
+	JoinRule         string `json:"join_rule,omitempty"`
+	Name             string `json:"name,omitempty"`
+	NumJoinedMembers int    `json:"num_joined_members"`
+	RoomID           string `json:"room_id"`
+	RoomType         string `json:"room_type,omitempty"`
+	Topic            string `json:"topic,omitempty"`
+	WorldReadable    bool   `json:"world_readable"`
+}

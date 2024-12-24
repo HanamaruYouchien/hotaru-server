@@ -130,3 +130,113 @@ type RequestUserDirectorySearch struct {
 	Limit      int    `json:"limit,omitempty"`
 	SearchTerm string `json:"search_term"`
 }
+
+type RequestCreateRoom struct {
+	CreationContent           CreationContent        `json:"creation_content,omitempty"`
+	InitialState              []StateEvent           `json:"initial_state,omitempty"`
+	Invite                    []string               `json:"invite,omitempty"`
+	Invite3pid                []Invite3pid           `json:"invite_3pid,omitempty"`
+	IsDirect                  bool                   `json:"is_direct,omitempty"`
+	Name                      string                 `json:"name,omitempty"`
+	PowerLevelContentOverride PowerLevelEventContent `json:"power_level_content_override,omitempty"`
+	Preset                    string                 `json:"preset,omitempty"`
+	RoomAliasName             string                 `json:"room_alias_name,omitempty"`
+	RoomVersion               string                 `json:"room_version,omitempty"`
+	Topic                     string                 `json:"topic,omitempty"`
+	Visibility                string                 `json:"visibility,omitempty"`
+}
+
+type CreationContent struct {
+	Creator     string       `json:"creator"`
+	Federate    string       `json:"m.federate,omitempty"`
+	Predecessor PreviousRoom `json:"predecessor,omitempty"`
+	RoomVersion string       `json:"room_version,omitempty"`
+	Type        string       `json:"type,omitempty"`
+}
+
+type PreviousRoom struct {
+	RoomID  string `json:"room_id"`
+	EventID string `json:"event_id"`
+}
+
+type StateEvent struct {
+	Content  any    `json:"content"`
+	StateKey string `json:"state_key,omitempty"`
+	Type     string `json:"type"`
+}
+
+type Invite3pid struct {
+	Address       string `json:"address"`
+	IDAccessToken string `json:"id_access_token"`
+	IDServer      string `json:"id_server"`
+	Medium        string `json:"medium"`
+}
+
+type PowerLevelEventContent struct {
+	Ban           int            `json:"ban,omitempty"`
+	Events        map[string]int `json:"events,omitempty"`
+	EventsDefault int            `json:"events_default,omitempty"`
+	Invite        int            `json:"invite,omitempty"`
+	Kick          int            `json:"kick,omitempty"`
+	Notifications Notifications  `json:"notifications,omitempty"`
+	Redact        int            `json:"redact,omitempty"`
+	StateDefault  int            `json:"state_default,omitempty"`
+	Users         map[string]int `json:"users,omitempty"`
+	UsersDefault  int            `json:"users_default,omitempty"`
+}
+
+type Notifications struct {
+	Room int `json:"room,omitempty"`
+	// TODO: Other properties
+}
+
+type RequestDirectoryRoomPut struct {
+	RoomID string `json:"room_id"`
+}
+
+type RequestRooms struct {
+	Reason string `json:"reason,omitempty"`
+	UserID string `json:"user_id"`
+}
+type RequestRoomsInvite RequestRooms
+type RequestRoomsKick RequestRooms
+type RequestRoomsBan RequestRooms
+type RequestRoomsUnban RequestRooms
+
+type RequestJoin struct {
+	Reason           string           `json:"reason,omitempty"`
+	ThirdPartySigned ThirdPartySigned `json:"third_party_signed,omitempty"`
+}
+type RequestRoomsJoin RequestJoin
+
+type ThirdPartySigned struct {
+	Mxid       string                       `json:"mxid"`
+	Sender     string                       `json:"sender"`
+	Signatures map[string]map[string]string `json:"signatures"`
+	Token      string                       `json:"token"`
+}
+
+type RequestKnock struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type RequestRoomsLeave struct {
+	Reason string `json:"reason,omitempty"`
+}
+
+type RequestDirectoryListRoomPut struct {
+	Visibility string `json:"visibility"`
+}
+
+type RequestPublicRoomsPost struct {
+	Filter               Filter `json:"filter,omitempty"`
+	IncludeAllNetworks   bool   `json:"include_all_networks,omitempty"`
+	Limit                int    `json:"limit,omitempty"`
+	Since                string `json:"since,omitempty"`
+	ThirdPartyInstanceID string `json:"third_party_instance_id,omitempty"`
+}
+
+type Filter struct {
+	GenericSearchTerm string   `json:"generic_search_term,omitempty"`
+	RoomTypes         []string `json:"room_types,omitempty"`
+}
