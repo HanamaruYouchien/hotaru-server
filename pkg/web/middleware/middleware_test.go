@@ -50,7 +50,7 @@ func TestRateLimiter(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %v, got %v", http.StatusOK, w.Code)
 	}
-	print(w.Body.String())
+	print("first time:", w.Body.String())
 
 	// Second request should be rate limited
 	w = httptest.NewRecorder()
@@ -58,6 +58,11 @@ func TestRateLimiter(t *testing.T) {
 	if w.Code != http.StatusTooManyRequests {
 		t.Errorf("expected status %v, got %v", http.StatusTooManyRequests, w.Code)
 	}
-	print(w.Body.String())
+	retryAfter := w.Header().Get("Retry-After")
+	println("retry after:", w.Header().Get("Retry-After"))
+	if retryAfter == "" {
+		t.Error("expect Retry-After header")
+	}
+	print("second time:", w.Body.String())
 
 }
