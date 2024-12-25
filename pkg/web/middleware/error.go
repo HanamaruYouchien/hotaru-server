@@ -59,6 +59,10 @@ func ErrorUnknownToken(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, model.ErrCodeUnknownToken, "")
 }
 
+func ErrorLimitExceeded(w http.ResponseWriter) {
+	Error(w, http.StatusTooManyRequests, model.ErrCodeLimitExceeded, "rate limit exceeded")
+}
+
 func ErrorUnknownMsg(w http.ResponseWriter, msg string) {
 	Error(w, http.StatusBadRequest, model.ErrCodeUnknown, msg)
 }

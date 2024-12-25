@@ -6,6 +6,7 @@ require github.com/goccy/go-yaml v1.15.8
 
 require (
 	github.com/go-chi/chi/v5 v5.2.0
+	github.com/go-chi/httprate v0.14.1
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/jackc/pgx/v5 v5.7.1
 	github.com/lestrrat-go/jwx/v3 v3.0.0-alpha1
@@ -17,6 +18,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/goccy/go-json v0.10.4 // indirect

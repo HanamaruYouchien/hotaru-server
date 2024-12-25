@@ -16,3 +16,12 @@ database:
   # sqlite
   # type: sqlite
   # url: ./build/hotaru.db
+
+# global:
+#   # Rate limiting kicks in after the threshold
+#   # number of "slots" have been taken by requests from a specific host. Each "slot"
+#   # will be released after the cooloff time in milliseconds.
+#   rate_limiting:
+#     enabled: true
+#     threshold: 20
+#     cooloff_ms: 500
