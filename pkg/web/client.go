@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"regexp"
 
@@ -14,7 +15,11 @@ import (
 )
 
 func (s *Server) toUserID(localpart string) string {
-	return "@" + localpart + ":" + s.domain
+	return fmt.Sprintf("@%s:%s", localpart, s.domain)
+}
+
+func (s *Server) toRoomAlias(alias string) string {
+	return fmt.Sprintf("#%s:%s", alias, s.domain)
 }
 
 var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
@@ -55,7 +60,7 @@ func (s *Server) apiRegisterAvailable(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, storage.ErrInvalidUsername):
 			middleware.ErrorInvalidUsername(w)
 		default:
-			middleware.ErrorUnknown(w)
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		}
 		return
 	}
@@ -69,7 +74,7 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 
 	// bad login type
 	if form.Type != model.AuthenticationTypePassword || form.Identifier.Type != model.IdentifierTypeUser {
-		middleware.ErrorUnknown(w)
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
 		return
 	}
 
@@ -86,7 +91,7 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 	var accessToken string
 	if err := s.db.IsDeviceExist(form.Identifier.User, form.DeviceID); err != nil {
 		if !errors.Is(err, storage.ErrDeviceNotExist) {
-			middleware.ErrorUnknown(w)
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 			return
 		}
 		if form.DeviceID == "" {
@@ -94,13 +99,13 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		}
 		accessToken, err = s.db.CreateDevice(form.Identifier.User, form.DeviceID, form.InitialDeviceDisplayName)
 		if err != nil {
-			middleware.ErrorUnknown(w)
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 			return
 		}
 	} else {
 		accessToken, err = s.db.UpdateAccessToken(form.Identifier.User, form.DeviceID, form.InitialDeviceDisplayName)
 		if err != nil {
-			middleware.ErrorUnknown(w)
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -133,7 +138,7 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, storage.ErrInvalidUsername):
 			middleware.ErrorInvalidUsername(w)
 		default:
-			middleware.ErrorUnknown(w)
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		}
 		return
 	}
@@ -143,7 +148,7 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	accessToken, err := s.db.CreateDevice(form.Username, form.DeviceID, form.InitialDeviceDisplayName)
 	if err != nil {
-		middleware.ErrorUnknown(w)
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -161,7 +166,7 @@ func (s *Server) apiLogout(w http.ResponseWriter, r *http.Request) {
 	device := middleware.GetDevice(r)
 	err := s.db.DeleteDevice(device.Localpart, device.DeviceID)
 	if err != nil {
-		middleware.ErrorUnknownMsg(w, "unknown error")
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 	middleware.RenderJSON(w, &struct{}{})
@@ -171,7 +176,7 @@ func (s *Server) apiLogoutAll(w http.ResponseWriter, r *http.Request) {
 	device := middleware.GetDevice(r)
 	err := s.db.DeleteDeviceByLocalpart(device.Localpart)
 	if err != nil {
-		middleware.ErrorUnknownMsg(w, "unknown error")
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 	middleware.RenderJSON(w, &struct{}{})
@@ -187,7 +192,7 @@ func (s *Server) apiChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: soft logout
 	if err := s.db.ChangeAccountPassword(account, form.NewPassword); err != nil {
-		middleware.ErrorUnknownMsg(w, "unknown error")
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -238,7 +243,7 @@ func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http
 			if errors.Is(err, storage.ErrProfileNotExist) {
 				middleware.ErrorNotFoundMsg(w, "user profile not found")
 			} else {
-				middleware.ErrorUnknownMsg(w, "unknown error")
+				middleware.ErrorUnknown(w, http.StatusInternalServerError)
 			}
 			return
 		}
@@ -308,23 +313,23 @@ func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(
 
 		if err := s.db.IsProfileExist(localpart); err != nil {
 			if !errors.Is(err, storage.ErrProfileNotExist) {
-				middleware.ErrorUnknownMsg(w, "unknown error")
+				middleware.ErrorUnknown(w, http.StatusInternalServerError)
 				return
 			}
 			if err := s.db.CreateProfile(localpart, form.DisplayName, form.AvatarUrl); err != nil {
-				middleware.ErrorUnknownMsg(w, "unknown error")
+				middleware.ErrorUnknown(w, http.StatusInternalServerError)
 				return
 			}
 		} else {
 			if enableDisplayName {
 				if err := s.db.UpdateProfileDisplayName(localpart, form.DisplayName); err != nil {
-					middleware.ErrorUnknownMsg(w, "unknown error")
+					middleware.ErrorUnknown(w, http.StatusInternalServerError)
 					return
 				}
 			}
 			if enableAvatarURL {
 				if err := s.db.UpdateProfileAvatarUrl(localpart, form.AvatarUrl); err != nil {
-					middleware.ErrorUnknownMsg(w, "unknown error")
+					middleware.ErrorUnknown(w, http.StatusInternalServerError)
 					return
 				}
 			}
@@ -348,7 +353,7 @@ func (s *Server) apiUserDirectorySearch(w http.ResponseWriter, r *http.Request) 
 
 	profiles, err := s.db.SearchProfile(form.SearchTerm, form.Limit)
 	if err != nil {
-		middleware.ErrorUnknownMsg(w, "unknown error")
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -384,7 +389,7 @@ func (s *Server) apiCapabilitiesNegotiation(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusOK)
 	err := json.NewEncoder(w).Encode(response)
 	if err != nil {
-		middleware.ErrorUnknownMsg(w, "unknown error")
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -397,12 +402,12 @@ func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	roomID, err := s.db.GetRoomIDByAlias(alias)
+	roomID, err := s.db.GetRoomIDByRoomAlias(alias)
 	if err != nil {
 		if errors.Is(err, storage.ErrRoomAliasNotExist) {
 			middleware.ErrorNotFoundMsg(w, "room alias not found")
 		} else {
-			middleware.ErrorUnknownMsg(w, "unknown error")
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 			return
 		}
 	}
@@ -411,5 +416,68 @@ func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 		RoomID:  roomID,
 		Servers: []string{s.domain},
 	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
+	roomAlias := chi.URLParam(r, "roomAlias")
+	alias, domain, err := parseAlias(roomAlias)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room alias invalid")
+		return
+	}
+
+	form := middleware.GetObject(r).(*model.RequestDirectoryRoomPut)
+
+	// TODO: check permission
+
+	if err := s.db.IsRoomAliasExist(alias); err == nil {
+		middleware.ErrorUnknownMsg(w, http.StatusConflict, "room alias already exists")
+		return
+	} else if !errors.Is(err, storage.ErrRoomAliasNotExist) {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+
+	if err := s.db.CreateRoomAlias(alias, form.RoomID); err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiDirectoryRoomDelete(w http.ResponseWriter, r *http.Request) {
+	roomAlias := chi.URLParam(r, "roomAlias")
+	alias, domain, err := parseAlias(roomAlias)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room alias invalid")
+		return
+	}
+
+	// TODO: check permission
+
+	if err := s.db.IsRoomAliasExist(alias); err != nil {
+		if errors.Is(err, storage.ErrRoomAliasNotExist) {
+			middleware.ErrorNotFoundMsg(w, "room alias not found")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if err := s.db.DeleteRoomAlias(alias); err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	aliases := s.db.GetRoomAliasesByRoomID(roomID)
+	for k, v := range aliases {
+		aliases[k] = s.toRoomAlias(v)
+	}
+	resp := &model.ResponseRoomsAliases{Aliases: aliases}
 	middleware.RenderJSON(w, resp)
 }

@@ -45,7 +45,7 @@ func Bind[T any]() func(http.Handler) http.Handler {
 				if _, ok := err.(*http.MaxBytesError); ok {
 					ErrorTooLarge(w)
 				} else {
-					ErrorUnknown(w)
+					ErrorUnknown(w, http.StatusInternalServerError)
 				}
 				return
 			}

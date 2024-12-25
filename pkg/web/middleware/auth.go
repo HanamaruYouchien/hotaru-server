@@ -42,7 +42,7 @@ func Auth(db *storage.Storage, required bool) func(http.Handler) http.Handler {
 				case errors.Is(err, storage.ErrDeviceNotExist):
 					ErrorUnknownToken(w)
 				default:
-					ErrorUnknownMsg(w, "unknown error")
+					ErrorUnknownMsg(w, http.StatusInternalServerError, "unknown error")
 				}
 				return
 			}
@@ -53,7 +53,7 @@ func Auth(db *storage.Storage, required bool) func(http.Handler) http.Handler {
 				case errors.Is(err, storage.ErrAccountNotExist):
 					ErrorUnknownToken(w)
 				default:
-					ErrorUnknownMsg(w, "unknown error")
+					ErrorUnknownMsg(w, http.StatusInternalServerError, "unknown error")
 				}
 				return
 			}

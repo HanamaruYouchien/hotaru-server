@@ -167,7 +167,7 @@ type ResponseDirectoryRoomGet struct {
 	Servers []string `json:"servers"`
 }
 
-type ResponseRoomsAlias struct {
+type ResponseRoomsAliases struct {
 	Aliases []string `json:"aliases"`
 }
 

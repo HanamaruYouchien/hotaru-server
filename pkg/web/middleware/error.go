@@ -70,10 +70,10 @@ func ErrorInvalidParam(w http.ResponseWriter) {
 	ErrorInvalidParamMsg(w, "")
 }
 
-func ErrorUnknownMsg(w http.ResponseWriter, msg string) {
-	Error(w, http.StatusBadRequest, model.ErrCodeUnknown, msg)
+func ErrorUnknownMsg(w http.ResponseWriter, status int, msg string) {
+	Error(w, status, model.ErrCodeUnknown, msg)
 }
 
-func ErrorUnknown(w http.ResponseWriter) {
-	ErrorUnknownMsg(w, "")
+func ErrorUnknown(w http.ResponseWriter, status int) {
+	ErrorUnknownMsg(w, status, "")
 }
