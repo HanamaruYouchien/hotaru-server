@@ -10,19 +10,10 @@ import (
 	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
-const DeviceIDByteLength = 6
 const AccessTokenByteLength = 32
 
 func GenerateAccessToken() (string, error) {
 	b, err := CryptoRandomBytes(AccessTokenByteLength)
-	if err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
-}
-
-func GenerateDeviceID() (string, error) {
-	b, err := CryptoRandomBytes(DeviceIDByteLength)
 	if err != nil {
 		return "", err
 	}

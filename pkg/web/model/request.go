@@ -148,7 +148,7 @@ type RequestCreateRoom struct {
 
 type CreationContent struct {
 	Creator     string       `json:"creator"`
-	Federate    string       `json:"m.federate,omitempty"`
+	Federate    bool         `json:"m.federate,omitempty"`
 	Predecessor PreviousRoom `json:"predecessor,omitempty"`
 	RoomVersion string       `json:"room_version,omitempty"`
 	Type        string       `json:"type,omitempty"`
