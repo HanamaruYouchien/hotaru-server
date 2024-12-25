@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -351,4 +352,26 @@ func parseUserID(userID string) (localpart, domain string, err error) {
 		return "", "", ErrInvalidUserID
 	}
 	return matches[1], matches[2], nil
+}
+
+func (s *Server) capabilitiesNegotiation(w http.ResponseWriter, r *http.Request) {
+	response := model.CapabilitiesResponse{}
+
+	response.Capabilities.ThreePIDChanges = model.BooleanCapability{Enabled: false}
+	response.Capabilities.ChangePassword = model.BooleanCapability{Enabled: true}
+	response.Capabilities.GetLoginToken = model.BooleanCapability{Enabled: false}
+	response.Capabilities.RoomVersions = model.RoomVersionsCapability{
+		Default:   "v10",
+		Available: []string{"v10"},
+	}
+	response.Capabilities.SetAvatarURL = model.BooleanCapability{Enabled: false}
+	response.Capabilities.SetDisplayName = model.BooleanCapability{Enabled: true}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	err := json.NewEncoder(w).Encode(response)
+	if err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
 }
