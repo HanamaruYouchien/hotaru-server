@@ -3,7 +3,9 @@ package web
 import (
 	"errors"
 	"net/http"
+	"regexp"
 
+	"github.com/go-chi/chi/v5"
 	"hotaru.hana.im/server/pkg/crypto"
 	"hotaru.hana.im/server/pkg/storage"
 	"hotaru.hana.im/server/pkg/web/middleware"
@@ -53,6 +55,7 @@ func (s *Server) apiLoginPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: try to update first?
 	var accessToken string
 	if err := s.db.IsDeviceExist(form.Identifier.User, form.DeviceID); err != nil {
 		if !errors.Is(err, storage.ErrDeviceNotExist) {
@@ -117,6 +120,8 @@ func (s *Server) apiRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.db.CreateProfile(form.Username, form.Username, "")
+
 	resp := &model.ResponseRegister{
 		UserID:      s.toUserID(form.Username),
 		AccessToken: accessToken,
@@ -174,6 +179,176 @@ func (s *Server) apiWhoami(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, resp)
 }
 
+func (s *Server) apiProfileDefault() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(true, true)
+}
+
+func (s *Server) apiProfileDisplayNameGet() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(true, false)
+}
+
+func (s *Server) apiProfileAvatarURLGet() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfile(false, true)
+}
+
+func (s *Server) apiProfile(enableDisplayName, enableAvatarURL bool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := chi.URLParam(r, "userId")
+		localpart, domain, err := parseUserID(userID)
+		if err != nil {
+			middleware.ErrorNotFoundMsg(w, "invalid user id")
+			return
+		}
+
+		// TODO: get user profile from other server
+		if domain != s.domain {
+			middleware.ErrorForbidden(w)
+			return
+		}
+
+		profile, err := s.db.GetProfile(localpart)
+		if err != nil {
+			if errors.Is(err, storage.ErrProfileNotExist) {
+				middleware.ErrorNotFoundMsg(w, "user profile not found")
+			} else {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+			}
+			return
+		}
+
+		if !enableDisplayName {
+			profile.DisplayName = ""
+		}
+		if !enableAvatarURL {
+			profile.AvatarUrl = ""
+		}
+
+		resp := &model.ResponseProfile{
+			DisplayName: profile.DisplayName,
+			AvatarURL:   profile.AvatarUrl,
+		}
+		middleware.RenderJSON(w, resp)
+	}
+}
+
+func (s *Server) apiProfileDisplayNamePut() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfileUpdate(true, false)
+}
+
+func (s *Server) apiProfileAvatarUrlPut() func(w http.ResponseWriter, r *http.Request) {
+	return s.apiProfileUpdate(false, true)
+}
+
+func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID := chi.URLParam(r, "userId")
+		localpart, domain, err := parseUserID(userID)
+		if err != nil {
+			middleware.ErrorNotFoundMsg(w, "invalid user id")
+			return
+		}
+
+		// TODO: get user profile from other server
+		if domain != s.domain {
+			middleware.ErrorForbidden(w)
+		}
+
+		account := middleware.GetAccount(r)
+		if account.Localpart != localpart {
+			middleware.ErrorForbiddenMsg(w, "no permission")
+		}
+
+		form := middleware.GetObject(r).(*model.RequestProfileUpdate)
+		if !enableDisplayName {
+			form.DisplayName = ""
+		}
+		if !enableAvatarURL {
+			form.AvatarUrl = ""
+		}
+
+		if enableDisplayName {
+			err = s.db.UpdateProfileDisplayName(localpart, form.DisplayName)
+		}
+		if enableAvatarURL {
+			err = s.db.UpdateProfileAvatarUrl(localpart, form.AvatarUrl)
+		}
+		if err == nil {
+			middleware.RenderJSON(w, &struct{}{})
+			return
+		}
+
+		if err := s.db.IsProfileExist(localpart); err != nil {
+			if !errors.Is(err, storage.ErrProfileNotExist) {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+				return
+			}
+			if err := s.db.CreateProfile(localpart, form.DisplayName, form.AvatarUrl); err != nil {
+				middleware.ErrorUnknownMsg(w, "unknown error")
+				return
+			}
+		} else {
+			if enableDisplayName {
+				if err := s.db.UpdateProfileDisplayName(localpart, form.DisplayName); err != nil {
+					middleware.ErrorUnknownMsg(w, "unknown error")
+					return
+				}
+			}
+			if enableAvatarURL {
+				if err := s.db.UpdateProfileAvatarUrl(localpart, form.AvatarUrl); err != nil {
+					middleware.ErrorUnknownMsg(w, "unknown error")
+					return
+				}
+			}
+		}
+
+		middleware.RenderJSON(w, &struct{}{})
+	}
+}
+
+func (s *Server) apiUserDirectorySearch(w http.ResponseWriter, r *http.Request) {
+	form := middleware.GetObject(r).(*model.RequestUserDirectorySearch)
+	if form.SearchTerm == "" {
+		middleware.RenderJSON(w, &model.ResponseUserDirectorySearch{
+			Results: []model.User{},
+		})
+		return
+	}
+	if form.Limit == 0 { // default value
+		form.Limit = 10
+	}
+
+	profiles, err := s.db.SearchProfile(form.SearchTerm, form.Limit)
+	if err != nil {
+		middleware.ErrorUnknownMsg(w, "unknown error")
+		return
+	}
+
+	resp := &model.ResponseUserDirectorySearch{
+		Limited: len(profiles) == form.Limit,
+		Results: make([]model.User, 0, len(profiles)),
+	}
+	for _, v := range profiles {
+		resp.Results = append(resp.Results, model.User{
+			UserID:      s.toUserID(v.Localpart),
+			AvatarURL:   v.AvatarUrl,
+			DisplayName: v.DisplayName,
+		})
+	}
+
+	middleware.RenderJSON(w, resp)
+}
+
 func (s *Server) toUserID(localpart string) string {
 	return "@" + localpart + ":" + s.domain
+}
+
+var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
+var ErrInvalidUserID = errors.New("invalid user id")
+
+func parseUserID(userID string) (localpart, domain string, err error) {
+	matches := userIDParser.FindStringSubmatch(userID)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
 }

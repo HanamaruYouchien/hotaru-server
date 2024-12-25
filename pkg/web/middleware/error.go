@@ -47,6 +47,14 @@ func ErrorMissingToken(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, model.ErrCodeMissingToken, "")
 }
 
+func ErrorNotFoundMsg(w http.ResponseWriter, msg string) {
+	Error(w, http.StatusNotFound, model.ErrCodeNotFound, msg)
+}
+
+func ErrorNotFound(w http.ResponseWriter) {
+	ErrorNotFoundMsg(w, "")
+}
+
 func ErrorUnknownToken(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, model.ErrCodeUnknownToken, "")
 }
