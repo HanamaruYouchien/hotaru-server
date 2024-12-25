@@ -80,7 +80,9 @@ func RenderJSONWithStatusCode(w http.ResponseWriter, status int, resp any) {
 	w.Write(raw)
 }
 
-func RateLimiter(maxRequests int, duration time.Duration) func(http.Handler) http.Handler {
+func RateLimiter( /*maxRequests int, duration time.Duration*/ ) func(http.Handler) http.Handler {
+	maxRequests := 5
+	duration := time.Millisecond * 500
 	return httprate.Limit(
 		maxRequests,
 		duration,

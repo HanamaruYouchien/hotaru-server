@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 func TestMaxBodyLength(t *testing.T) {
@@ -38,7 +37,7 @@ func TestMaxBodyLength(t *testing.T) {
 }
 
 func TestRateLimiter(t *testing.T) {
-	handler := RateLimiter(1, time.Second)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := RateLimiter( /*This Test is unuseable while parameter is locked in func RateLimiter*/ )(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
