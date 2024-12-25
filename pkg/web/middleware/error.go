@@ -63,6 +63,13 @@ func ErrorLimitExceeded(w http.ResponseWriter) {
 	Error(w, http.StatusTooManyRequests, model.ErrCodeLimitExceeded, "rate limit exceeded")
 }
 
+func ErrorInvalidParamMsg(w http.ResponseWriter, msg string) {
+	Error(w, http.StatusBadRequest, model.ErrCodeInvalidParam, msg)
+}
+func ErrorInvalidParam(w http.ResponseWriter) {
+	ErrorInvalidParamMsg(w, "")
+}
+
 func ErrorUnknownMsg(w http.ResponseWriter, msg string) {
 	Error(w, http.StatusBadRequest, model.ErrCodeUnknown, msg)
 }

@@ -75,6 +75,7 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 		PowerLevel: 100,
 	}
 
+	// TODO: Apply events
 	session := db.engine.NewSession()
 	defer session.Close()
 
@@ -103,6 +104,29 @@ func (db *Storage) IsAliasExist(alias string) error {
 	}
 	if !has {
 		return ErrRoomAliasNotExist
+	}
+	return nil
+}
+
+func (db *Storage) GetRoomIDByAlias(alias string) (string, error) {
+	roomAlias := &RoomAlias{}
+	has, err := db.engine.ID(alias).Get(roomAlias)
+	if err != nil {
+		return "", err
+	}
+	if !has {
+		return "", ErrRoomAliasNotExist
+	}
+	return roomAlias.RoomId, nil
+}
+
+func (db *Storage) CreateRoomAlias(alias, roomID string) error {
+	roomAlias := &RoomAlias{
+		Alias:  alias,
+		RoomId: roomID,
+	}
+	if _, err := db.engine.InsertOne(roomAlias); err != nil {
+		return err
 	}
 	return nil
 }

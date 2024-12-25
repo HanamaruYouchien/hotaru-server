@@ -4,6 +4,7 @@ import "encoding/base64"
 
 const DeviceIDByteLength = 6
 const RoomIDByteLength = 12
+const EventIDByteLength = 36
 
 func GenerateDeviceID() (string, error) {
 	b, err := CryptoRandomBytes(DeviceIDByteLength)
@@ -15,6 +16,14 @@ func GenerateDeviceID() (string, error) {
 
 func GenerateRoomID() (string, error) {
 	b, err := CryptoRandomBytes(RoomIDByteLength)
+	if err != nil {
+		return "", nil
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func GenerateEventID() (string, error) {
+	b, err := CryptoRandomBytes(EventIDByteLength)
 	if err != nil {
 		return "", nil
 	}

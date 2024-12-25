@@ -1,10 +1,15 @@
 package storage
 
-import "time"
+import (
+	"errors"
+	"time"
+
+	"xorm.io/xorm/schemas"
+)
 
 type Event struct {
 	EventId      string `xorm:"pk"`
-	RoomId       string
+	RoomId       string `xorm:"pk"`
 	Type         string
 	Sender       string
 	StateKey     string
@@ -230,4 +235,18 @@ type ThumbnailInfo struct {
 	W        int    `json:"w,omitempty"`
 	MimeType string `json:"mimetype,omitempty"`
 	Size     int    `json:"size,omitempty"`
+}
+
+var ErrEventNotExist = errors.New("event not exist")
+
+func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
+	event := &Event{}
+	has, err := db.engine.ID(schemas.PK{roomID, eventID}).Get(event)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrEventNotExist
+	}
+	return event, nil
 }

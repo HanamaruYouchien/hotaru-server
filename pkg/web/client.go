@@ -13,6 +13,32 @@ import (
 	"hotaru.hana.im/server/pkg/web/model"
 )
 
+func (s *Server) toUserID(localpart string) string {
+	return "@" + localpart + ":" + s.domain
+}
+
+var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
+var ErrInvalidUserID = errors.New("invalid user id")
+
+func parseUserID(userID string) (localpart, domain string, err error) {
+	matches := userIDParser.FindStringSubmatch(userID)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
+}
+
+var aliasParser = regexp.MustCompile(`^#(.+):(.+)$`)
+var ErrInvalidRoomAlias = errors.New("invalid room alias")
+
+func parseAlias(roomAlias string) (alias, domain string, err error) {
+	matches := aliasParser.FindStringSubmatch(roomAlias)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
+}
+
 func clientVersionsHandler(w http.ResponseWriter, _ *http.Request) {
 	resp := &model.ResponseClientVersions{
 		Versions: []string{"v1.11"},
@@ -252,11 +278,13 @@ func (s *Server) apiProfileUpdate(enableDisplayName, enableAvatarURL bool) func(
 		// TODO: get user profile from other server
 		if domain != s.domain {
 			middleware.ErrorForbidden(w)
+			return
 		}
 
 		account := middleware.GetAccount(r)
 		if account.Localpart != localpart {
 			middleware.ErrorForbiddenMsg(w, "no permission")
+			return
 		}
 
 		form := middleware.GetObject(r).(*model.RequestProfileUpdate)
@@ -339,22 +367,7 @@ func (s *Server) apiUserDirectorySearch(w http.ResponseWriter, r *http.Request) 
 	middleware.RenderJSON(w, resp)
 }
 
-func (s *Server) toUserID(localpart string) string {
-	return "@" + localpart + ":" + s.domain
-}
-
-var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
-var ErrInvalidUserID = errors.New("invalid user id")
-
-func parseUserID(userID string) (localpart, domain string, err error) {
-	matches := userIDParser.FindStringSubmatch(userID)
-	if len(matches) == 0 {
-		return "", "", ErrInvalidUserID
-	}
-	return matches[1], matches[2], nil
-}
-
-func (s *Server) capabilitiesNegotiation(w http.ResponseWriter, r *http.Request) {
+func (s *Server) apiCapabilitiesNegotiation(w http.ResponseWriter, r *http.Request) {
 	response := model.CapabilitiesResponse{}
 
 	response.Capabilities.ThreePIDChanges = model.BooleanCapability{Enabled: false}
@@ -374,4 +387,29 @@ func (s *Server) capabilitiesNegotiation(w http.ResponseWriter, r *http.Request)
 		middleware.ErrorUnknownMsg(w, "unknown error")
 		return
 	}
+}
+
+func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
+	roomAlias := chi.URLParam(r, "roomAlias")
+	alias, domain, err := parseAlias(roomAlias)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room alias invalid")
+		return
+	}
+
+	roomID, err := s.db.GetRoomIDByAlias(alias)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoomAliasNotExist) {
+			middleware.ErrorNotFoundMsg(w, "room alias not found")
+		} else {
+			middleware.ErrorUnknownMsg(w, "unknown error")
+			return
+		}
+	}
+
+	resp := &model.ResponseDirectoryRoomGet{
+		RoomID:  roomID,
+		Servers: []string{s.domain},
+	}
+	middleware.RenderJSON(w, resp)
 }

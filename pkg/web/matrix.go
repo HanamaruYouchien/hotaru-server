@@ -31,6 +31,6 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestProfileUpdate]()).Put("/v3/profile/{userId}/displayname", s.apiProfileDisplayNamePut())
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestUserDirectorySearch]()).Post("/v3/user_directory/search", s.apiUserDirectorySearch)
 
-	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/capabilities", s.capabilitiesNegotiation)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/capabilities", s.apiCapabilitiesNegotiation)
 	return r
 }
