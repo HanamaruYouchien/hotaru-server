@@ -154,3 +154,23 @@ type User struct {
 	AvatarURL   string `json:"avatar_url,omitempty"`
 	DisplayName string `json:"displayname,omitempty"`
 }
+
+type BooleanCapability struct {
+	Enabled bool `json:"enabled"`
+}
+
+type RoomVersionsCapability struct {
+	Available []string `json:"available"`
+	Default   string   `json:"default"`
+}
+
+type CapabilitiesResponse struct {
+	Capabilities struct {
+		ThreePIDChanges BooleanCapability      `json:"m.3pid_changes"`
+		ChangePassword  BooleanCapability      `json:"m.change_password"`
+		GetLoginToken   BooleanCapability      `json:"m.get_login_token"`
+		RoomVersions    RoomVersionsCapability `json:"m.room_versions"`
+		SetAvatarURL    BooleanCapability      `json:"m.set_avatar_url"`
+		SetDisplayName  BooleanCapability      `json:"m.set_displayname"`
+	} `json:"capabilities"`
+}
