@@ -263,6 +263,33 @@ func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 
 func (db *Storage) SendText(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
 	eventID, _ := crypto.GenerateEventID()
-	db.engine.Exec("INSERT INTO event (event_id, room_id, type, sender, content) VALUES (?, ?, ?, ?, ?)", eventID, roomID, eventType, sender, text)
+	_, err := db.engine.Exec("INSERT INTO event (event_id, room_id, type, sender, content) VALUES (?, ?, ?, ?, ?)", eventID, roomID, eventType, sender, text)
+	if err != nil {
+		return "", err
+	}
+	return eventID, nil
+}
+
+func (db *Storage) SendImage(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendFile(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendAudio(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendVideo(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
 	return eventID, nil
 }

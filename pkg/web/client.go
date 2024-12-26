@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"regexp"
 
@@ -525,32 +526,55 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
 
-	requestBody := model.MessageBody{}
-	if errDecodeBody := json.NewDecoder(r.Body).Decode(&requestBody); errDecodeBody != nil {
+	bodyBytes, errRenderContent := io.ReadAll(r.Body)
+	jsonString := string(bodyBytes)
+	requestBody := storage.EventRoomMessageContent{}
+	errDecodeBody := json.Unmarshal(bodyBytes, &requestBody)
+	if errDecodeBody != nil || errRenderContent != nil {
 		middleware.ErrorUnknown(w, http.StatusBadRequest)
 		return
 	}
-	// println("Sending ", roomID, eventType, txnID, requestBody.MsgType, requestBody.Body)
 
 	var eventID string
 	var err error
 
 	// TODO: get sender info
-	switch requestBody.MsgType {
-	case "m.text":
-		eventID, err = s.db.SendText(roomID, eventType, txnID, requestBody.Body, "user01")
-
-	case "m.emote":
-
-	case "m.notice":
+	//		 check txnId
+	switch requestBody.Msgtype {
+	case "m.text", "m.emote", "m.notice":
+		eventID, err = s.db.SendText(roomID, eventType, txnID, jsonString, "user01")
 
 	case "m.image":
+		requestBody := storage.EventRoomMessageImageContent{}
+		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+			middleware.ErrorUnknown(w, http.StatusBadRequest)
+			return
+		}
+		// eventID, err = s.db.SendImage(roomID, eventType, txnID, jsonString, "user01")
 
 	case "m.file":
+		requestBody := storage.EventRoomMessageFileContent{}
+		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+			middleware.ErrorUnknown(w, http.StatusBadRequest)
+			return
+		}
+		// eventID, err = s.db.SendFile(roomID, eventType, txnID, jsonString, "user01")
 
 	case "m.audio":
+		requestBody := storage.EventRoomMessageAudioContent{}
+		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+			middleware.ErrorUnknown(w, http.StatusBadRequest)
+			return
+		}
+		// eventID, err = s.db.SendAudio(roomID, eventType, txnID, jsonString, "user01")
 
 	case "m.video":
+		requestBody := storage.EventRoomMessageVideoContent{}
+		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+			middleware.ErrorUnknown(w, http.StatusBadRequest)
+			return
+		}
+		// eventID, err = s.db.SendVideo(roomID, eventType, txnID, jsonString, "user01")
 
 	default:
 		middleware.ErrorUnknown(w, http.StatusBadRequest)
@@ -565,8 +589,4 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 		"event_id": eventID,
 	}
 	middleware.RenderJSON(w, resp)
-	// {
-	// 	"body": "( ﾟ∀。)( ﾟ∀。)( ﾟ∀。)",
-	// 	"msgtype": "m.text"
-	//   }
 }
