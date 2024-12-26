@@ -22,6 +22,10 @@ func (s *Server) toRoomAlias(alias string) string {
 	return fmt.Sprintf("#%s:%s", alias, s.domain)
 }
 
+func (s *Server) toRoomID(roomID string) string {
+	return fmt.Sprintf("!%s:%s", roomID, s.domain)
+}
+
 var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
 var ErrInvalidUserID = errors.New("invalid user id")
 
@@ -40,6 +44,17 @@ func parseAlias(roomAlias string) (alias, domain string, err error) {
 	matches := aliasParser.FindStringSubmatch(roomAlias)
 	if len(matches) == 0 {
 		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
+}
+
+var roomIDParser = regexp.MustCompile(`^!(.+):(.+)$`)
+var ErrInvalidRoomID = errors.New("invalid room id")
+
+func parseRoomID(room string) (roomID, domain string, err error) {
+	matches := roomIDParser.FindStringSubmatch(room)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidRoomID
 	}
 	return matches[1], matches[2], nil
 }
@@ -394,6 +409,24 @@ func (s *Server) apiCapabilitiesNegotiation(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func (s *Server) apiCreateRoom(w http.ResponseWriter, r *http.Request) {
+	form := middleware.GetObject(r).(*model.RequestCreateRoom)
+	account := middleware.GetAccount(r)
+
+	roomID, err := s.db.CreateRoom(form.Name, form.Topic, form.Visibility, account.Localpart, form.RoomAliasName)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoomAliasInUsed) {
+			middleware.ErrorRoomInUse(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseCreateRoom{RoomID: s.toRoomID(roomID)}
+	middleware.RenderJSON(w, resp)
+}
+
 func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 	roomAlias := chi.URLParam(r, "roomAlias")
 	alias, domain, err := parseAlias(roomAlias)
@@ -413,7 +446,7 @@ func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &model.ResponseDirectoryRoomGet{
-		RoomID:  roomID,
+		RoomID:  s.toRoomID(roomID),
 		Servers: []string{s.domain},
 	}
 	middleware.RenderJSON(w, resp)
@@ -428,6 +461,11 @@ func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := middleware.GetObject(r).(*model.RequestDirectoryRoomPut)
+	roomID, domain, err := parseRoomID(form.RoomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
 
 	// TODO: check permission
 
@@ -439,7 +477,7 @@ func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.CreateRoomAlias(alias, form.RoomID); err != nil {
+	if err := s.db.CreateRoomAlias(alias, roomID); err != nil {
 		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
@@ -474,10 +512,43 @@ func (s *Server) apiDirectoryRoomDelete(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	aliases := s.db.GetRoomAliasesByRoomID(roomID)
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	// TODO: check permission
+
+	aliases, err := s.db.GetRoomAliasesByRoomID(roomID)
+	if err != nil {
+		if errors.Is(err, storage.ErrEmptyRoomID) {
+			middleware.ErrorForbiddenMsg(w, "roomID is empty")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
 	for k, v := range aliases {
 		aliases[k] = s.toRoomAlias(v)
 	}
 	resp := &model.ResponseRoomsAliases{Aliases: aliases}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiJoinedRooms(w http.ResponseWriter, r *http.Request) {
+	account := middleware.GetAccount(r)
+	joinedRooms, err := s.db.GetJoinedRooms(account.Localpart)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+
+	for k, v := range joinedRooms {
+		joinedRooms[k] = s.toRoomID(v)
+	}
+
+	resp := &model.ResponseJoinedRooms{JoinedRooms: joinedRooms}
 	middleware.RenderJSON(w, resp)
 }

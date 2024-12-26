@@ -4,6 +4,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"xorm.io/xorm"
+	"xorm.io/xorm/caches"
 
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -25,6 +26,9 @@ func NewStorage(engineType, engineUrl string, logger *zerolog.Logger) (*Storage,
 		return nil, err
 	}
 	eng.SetLogger(&xormLogger{logger: logger})
+
+	cacher := caches.NewLRUCacher(caches.NewMemoryStore(), 1000)
+	eng.SetDefaultCacher(cacher)
 
 	if err := eng.Ping(); err != nil {
 		return nil, err

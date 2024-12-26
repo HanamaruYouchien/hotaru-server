@@ -42,6 +42,7 @@ const (
 
 var ErrRoomAliasNotExist = errors.New("alias not exist")
 var ErrRoomAliasInUsed = errors.New("alias in used")
+var ErrEmptyRoomID = errors.New("empty roomID")
 
 func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (string, error) {
 	roomID, err := crypto.GenerateRoomID()
@@ -108,18 +109,16 @@ func (db *Storage) IsRoomAliasExist(alias string) error {
 	return nil
 }
 
-func (db *Storage) GetRoomAliasesByRoomID(roomID string) []string {
+func (db *Storage) GetRoomAliasesByRoomID(roomID string) ([]string, error) {
 	if roomID == "" {
-		return []string{}
+		return nil, ErrEmptyRoomID
 	}
 
-	aliases := make([]RoomAlias, 0)
-	db.engine.Where("room_id = ?", roomID).Find(&aliases)
-	res := make([]string, 0, len(aliases))
-	for _, v := range aliases {
-		res = append(res, v.Alias)
+	aliases := make([]string, 0)
+	if err := db.engine.Table(&RoomAlias{}).Where("room_id = ?", roomID).Cols("alias").Find(&aliases); err != nil {
+		return nil, err
 	}
-	return res
+	return aliases, nil
 }
 
 func (db *Storage) GetRoomIDByRoomAlias(alias string) (string, error) {
@@ -148,4 +147,17 @@ func (db *Storage) CreateRoomAlias(alias, roomID string) error {
 func (db *Storage) DeleteRoomAlias(alias string) error {
 	_, err := db.engine.ID(alias).Delete(&RoomAlias{})
 	return err
+}
+
+func (db *Storage) GetJoinedRooms(localpart string) (roomIDs []string, err error) {
+	if localpart == "" {
+		return nil, ErrEmptyLocalpart
+	}
+
+	roomIDs = make([]string, 0)
+	if err := db.engine.Table(&AccountRoom{}).Where("localpart = ?", localpart).And("membership = ?", MembershipTypeJoined).Cols("room_id").Find(&roomIDs); err != nil {
+		return nil, err
+	}
+
+	return roomIDs, nil
 }

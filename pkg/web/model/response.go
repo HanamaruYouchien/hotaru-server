@@ -40,6 +40,7 @@ const (
 	ErrCodeCannotLeaveServerNoticeRoom = "M_CANNOT_LEAVE_SERVER_NOTICE_ROOM"
 	ErrCodeWeakPassword                = "M_WEAK_PASSWORD"
 	ErrCodeInvalidUsername             = "M_INVALID_USERNAME"
+	ErrCodeRoomInUse                   = "M_ROOM_IN_USE"
 )
 
 type ResponseClientVersions struct {
@@ -179,14 +180,14 @@ type ResponseDirectoryListRoomGet struct {
 	Visibility string `json:"visibility"`
 }
 
-type ResponsePublivkRooms struct {
+type ResponsePublicRooms struct {
 	Chunk                  PublicRoomsChunk `json:"chunk"`
 	NextBatch              string           `json:"next_batch"`
 	PrevBatch              string           `json:"prev_batch"`
 	TotalRoomCountEstimate int              `json:"total_room_count_estimate"`
 }
-type ResponsePublivkRoomsGet ResponsePublivkRooms
-type ResponsePublivkRoomsPost ResponsePublivkRooms
+type ResponsePublicRoomsGet ResponsePublicRooms
+type ResponsePublicRoomsPost ResponsePublicRooms
 
 type PublicRoomsChunk struct {
 	AvatarURL        string `json:"avatar_url,omitempty"`
