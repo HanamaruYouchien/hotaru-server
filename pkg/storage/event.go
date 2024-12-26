@@ -250,3 +250,12 @@ func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 	}
 	return event, nil
 }
+
+func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
+	members := make([]string, 0)
+	err := db.engine.Table(&AccountRoom{}).Cols("localpart").Where("roomid = ?", roomID).Find(&members)
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}

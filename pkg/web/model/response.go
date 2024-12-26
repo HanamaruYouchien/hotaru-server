@@ -220,3 +220,12 @@ type CapabilitiesResponse struct {
 		SetDisplayName  BooleanCapability      `json:"m.set_displayname"`
 	} `json:"capabilities"`
 }
+
+type Member struct {
+	AvatarURL   *string `json:"avatar_url"`
+	DisplayName string  `json:"display_name"`
+}
+
+type JoinedMembersResponse struct {
+	Joined map[string]Member `json:"joined"`
+}

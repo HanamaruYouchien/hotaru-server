@@ -481,3 +481,38 @@ func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 	resp := &model.ResponseRoomsAliases{Aliases: aliases}
 	middleware.RenderJSON(w, resp)
 }
+
+func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	eventID := chi.URLParam(r, "eventId")
+	// println(roomID, eventID)
+	event, err := s.db.GetEvent(roomID, eventID)
+	if err != nil {
+		middleware.ErrorNotFoundMsg(w, err.Error())
+		return
+	}
+	middleware.RenderJSON(w, event)
+}
+
+func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+
+	res, err := s.db.GetJoinedMembers(roomID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+
+	JoinedMembers := model.JoinedMembersResponse{
+		Joined: make(map[string]model.Member),
+	}
+
+	for _, username := range res {
+		JoinedMembers.Joined[s.toUserID(username)] = model.Member{
+			AvatarURL:   nil,
+			DisplayName: username,
+		}
+	}
+
+	middleware.RenderJSON(w, res)
+}
