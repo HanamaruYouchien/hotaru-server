@@ -42,5 +42,6 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsInvite]()).Post("/v3/rooms/{roomId}/invite", s.apiRoomsInvite)
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestJoin]()).Post("/v3/join/{roomIdOrAlias}", s.apiJoin)
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsJoin]()).Post("/v3/rooms/{roomId}/join", s.apiRoomsJoin)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsLeave]()).Post("/v3/rooms/{roomId}/leave", s.apiRoomsLeave)
 	return r
 }

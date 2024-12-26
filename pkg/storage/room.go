@@ -212,14 +212,13 @@ func (db *Storage) InviteRoom(roomID, from, to string) error {
 		// TODO: check permission
 	}
 
-	id := schemas.PK{to, roomID}
 	if accountRoom, err := db.GetAccountRoom(roomID, to); err == nil {
 		// TODO: use different error types
 		switch accountRoom.Membership {
 		case MembershipTypeBanned, MembershipTypeJoined:
 			return ErrNoPermission
 		}
-		if _, err := db.engine.ID(id).Update(&AccountRoom{Membership: MembershipTypeInvited}); err != nil {
+		if _, err := db.engine.ID(schemas.PK{to, roomID}).Update(&AccountRoom{Membership: MembershipTypeInvited}); err != nil {
 			return err
 		}
 	} else {
@@ -246,7 +245,6 @@ func (db *Storage) JoinRoom(roomID, localpart string) error {
 		return ErrEmptyRoomID
 	}
 
-	id := schemas.PK{localpart, roomID}
 	if accountRoom, err := db.GetAccountRoom(roomID, localpart); err == nil {
 		// TODO: use different error types
 		switch accountRoom.Membership {
@@ -254,7 +252,7 @@ func (db *Storage) JoinRoom(roomID, localpart string) error {
 			return ErrNoPermission
 		}
 		// TODO: check permission
-		if _, err := db.engine.ID(id).Update(&AccountRoom{Membership: MembershipTypeJoined, PowerLevel: 0}); err != nil {
+		if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("membership", "power_level").Update(&AccountRoom{Membership: MembershipTypeJoined, PowerLevel: 0}); err != nil {
 			return err
 		}
 	} else {
@@ -272,5 +270,31 @@ func (db *Storage) JoinRoom(roomID, localpart string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+func (db *Storage) LeaveRoom(roomID, localpart string) error {
+	if localpart == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	accountRoom, err := db.GetAccountRoom(roomID, localpart)
+	if err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		}
+		return err
+	}
+	switch accountRoom.Membership {
+	case MembershipTypeBanned, MembershipTypeUnrelated:
+		return ErrNoPermission
+	}
+	if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+		return err
+	}
+
 	return nil
 }

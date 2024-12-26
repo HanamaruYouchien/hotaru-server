@@ -671,3 +671,26 @@ func (s *Server) apiJoin(w http.ResponseWriter, r *http.Request) {
 	resp := &model.ResponseJoinRoom{RoomID: s.toRoomID(roomID)}
 	middleware.RenderJSON(w, resp)
 }
+
+func (s *Server) apiRoomsLeave(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsLeave)
+	_ = form
+
+	if err := s.db.LeaveRoom(roomID, account.Localpart); err != nil {
+		if errors.Is(err, storage.ErrNoPermission) {
+			middleware.ErrorForbidden(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
