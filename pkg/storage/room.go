@@ -32,6 +32,7 @@ type AccountRoom struct {
 	RoomId     string `xorm:"pk"`
 	Membership MembershipType
 	PowerLevel int
+	Forgot     bool
 }
 
 type MembershipType int
@@ -191,8 +192,8 @@ func (db *Storage) GetAccountRoom(roomID, localpart string) (*AccountRoom, error
 	return accountRoom, nil
 }
 
-func (db *Storage) InviteRoom(roomID, from, to string) error {
-	if to == "" {
+func (db *Storage) RoomInvite(roomID, from, target string) error {
+	if from == "" || target == "" {
 		return ErrEmptyLocalpart
 	}
 	if roomID == "" {
@@ -212,13 +213,13 @@ func (db *Storage) InviteRoom(roomID, from, to string) error {
 		// TODO: check permission
 	}
 
-	if accountRoom, err := db.GetAccountRoom(roomID, to); err == nil {
+	if accountRoom, err := db.GetAccountRoom(roomID, target); err == nil {
 		// TODO: use different error types
 		switch accountRoom.Membership {
 		case MembershipTypeBanned, MembershipTypeJoined:
 			return ErrNoPermission
 		}
-		if _, err := db.engine.ID(schemas.PK{to, roomID}).Update(&AccountRoom{Membership: MembershipTypeInvited}); err != nil {
+		if _, err := db.engine.ID(schemas.PK{target, roomID}).Update(&AccountRoom{Membership: MembershipTypeInvited}); err != nil {
 			return err
 		}
 	} else {
@@ -226,7 +227,7 @@ func (db *Storage) InviteRoom(roomID, from, to string) error {
 			return err
 		}
 		accountRoom := &AccountRoom{
-			Localpart:  to,
+			Localpart:  target,
 			RoomId:     roomID,
 			Membership: MembershipTypeInvited,
 		}
@@ -237,7 +238,7 @@ func (db *Storage) InviteRoom(roomID, from, to string) error {
 	return nil
 }
 
-func (db *Storage) JoinRoom(roomID, localpart string) error {
+func (db *Storage) RoomJoin(roomID, localpart string) error {
 	if localpart == "" {
 		return ErrEmptyLocalpart
 	}
@@ -252,7 +253,7 @@ func (db *Storage) JoinRoom(roomID, localpart string) error {
 			return ErrNoPermission
 		}
 		// TODO: check permission
-		if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("membership", "power_level").Update(&AccountRoom{Membership: MembershipTypeJoined, PowerLevel: 0}); err != nil {
+		if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("membership", "power_level", "forgot").Update(&AccountRoom{Membership: MembershipTypeJoined, PowerLevel: 0, Forgot: false}); err != nil {
 			return err
 		}
 	} else {
@@ -273,7 +274,7 @@ func (db *Storage) JoinRoom(roomID, localpart string) error {
 	return nil
 }
 
-func (db *Storage) LeaveRoom(roomID, localpart string) error {
+func (db *Storage) RoomLeave(roomID, localpart string) error {
 	if localpart == "" {
 		return ErrEmptyLocalpart
 	}
@@ -296,5 +297,164 @@ func (db *Storage) LeaveRoom(roomID, localpart string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (db *Storage) RoomKick(roomID, from, target string) error {
+	if from == "" || target == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return nil // kick unrelated account is allowed
+		} else {
+			return err
+		}
+	} else {
+		if accountRoomFrom.Membership != MembershipTypeJoined {
+			return ErrNoPermission
+		}
+		// TODO: check permission
+	}
+
+	accountRoom, err := db.GetAccountRoom(roomID, target)
+	if err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		}
+		return err
+	}
+	if accountRoom.Membership == MembershipTypeBanned {
+		return ErrNoPermission
+	}
+
+	if _, err := db.engine.ID(schemas.PK{target, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *Storage) RoomForget(roomID, localpart string) error {
+	if localpart == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	accountRoom, err := db.GetAccountRoom(roomID, localpart)
+	if err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return nil
+		}
+		return err
+	}
+	if accountRoom.Membership == MembershipTypeJoined {
+		return ErrNoPermission
+	}
+	if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("forgot").Update(&AccountRoom{Forgot: true}); err != nil {
+		return err
+	}
+	db.tryDeleteRoom(roomID)
+	return nil
+}
+
+func (db *Storage) tryDeleteRoom(roomID string) error {
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+	if cnt, err := db.engine.Where("room_id = ?", roomID).And("forgot = ?", false).Count(&AccountRoom{}); err != nil {
+		return err
+	} else if cnt != 0 {
+		return nil
+	}
+
+	if _, err := db.engine.ID(roomID).Delete(&AccountRoom{}); err != nil {
+		return err
+	}
+	// TODO: delete events
+	return nil
+}
+
+func (db *Storage) RoomBan(roomID, from, target string) error {
+	if from == "" || target == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		} else {
+			return err
+		}
+	} else {
+		if accountRoomFrom.Membership != MembershipTypeJoined {
+			return ErrNoPermission
+		}
+		// TODO: check permission
+	}
+
+	if err := db.IsAccountRoomExist(roomID, target); err != nil {
+		if !errors.Is(err, ErrAccountRoomNotExist) {
+			return err
+		}
+		accountRoom := &AccountRoom{
+			Localpart:  target,
+			RoomId:     roomID,
+			Membership: MembershipTypeBanned,
+		}
+		_, err := db.engine.InsertOne(accountRoom)
+		return err
+	}
+
+	if _, err := db.engine.ID(schemas.PK{target, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeBanned}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (db *Storage) RoomUnban(roomID, from, target string) error {
+	if from == "" || target == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		} else {
+			return err
+		}
+	} else {
+		if accountRoomFrom.Membership != MembershipTypeJoined {
+			return ErrNoPermission
+		}
+		// TODO: check permission
+	}
+
+	if accountRoom, err := db.GetAccountRoom(roomID, target); err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		}
+		return err
+	} else {
+		if accountRoom.Membership != MembershipTypeBanned {
+			return ErrNoPermission
+		}
+		if _, err := db.engine.ID(schemas.PK{target, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
