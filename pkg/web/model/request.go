@@ -211,3 +211,10 @@ type Filter struct {
 	GenericSearchTerm string   `json:"generic_search_term,omitempty"`
 	RoomTypes         []string `json:"room_types,omitempty"`
 }
+
+type MessageBody struct {
+	Body          string `json:"body"`
+	MsgType       string `json:"msgtype"`
+	Format        string `json:"format"`
+	FormattedBody string `json:"formatted_body"`
+}

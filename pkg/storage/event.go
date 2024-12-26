@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"hotaru.hana.im/server/pkg/crypto"
 	"xorm.io/xorm/schemas"
 )
 
@@ -258,4 +259,10 @@ func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 		return nil, err
 	}
 	return members, nil
+}
+
+func (db *Storage) SendText(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	db.engine.Exec("INSERT INTO event (event_id, room_id, type, sender, content) VALUES (?, ?, ?, ?, ?)", eventID, roomID, eventType, sender, text)
+	return eventID, nil
 }

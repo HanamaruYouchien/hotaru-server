@@ -482,6 +482,7 @@ func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, resp)
 }
 
+// Get Event
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	eventID := chi.URLParam(r, "eventId")
@@ -515,4 +516,57 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	middleware.RenderJSON(w, res)
+}
+
+// Send Event
+
+func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomID")
+	eventType := chi.URLParam(r, "eventType")
+	txnID := chi.URLParam(r, "txnID")
+
+	requestBody := model.MessageBody{}
+	if errDecodeBody := json.NewDecoder(r.Body).Decode(&requestBody); errDecodeBody != nil {
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+	// println("Sending ", roomID, eventType, txnID, requestBody.MsgType, requestBody.Body)
+
+	var eventID string
+	var err error
+
+	// TODO: get sender info
+	switch requestBody.MsgType {
+	case "m.text":
+		eventID, err = s.db.SendText(roomID, eventType, txnID, requestBody.Body, "user01")
+
+	case "m.emote":
+
+	case "m.notice":
+
+	case "m.image":
+
+	case "m.file":
+
+	case "m.audio":
+
+	case "m.video":
+
+	default:
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	resp := map[string]string{
+		"event_id": eventID,
+	}
+	middleware.RenderJSON(w, resp)
+	// {
+	// 	"body": "( ﾟ∀。)( ﾟ∀。)( ﾟ∀。)",
+	// 	"msgtype": "m.text"
+	//   }
 }
