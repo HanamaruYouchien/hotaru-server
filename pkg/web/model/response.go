@@ -161,6 +161,7 @@ type ResponseRoom struct {
 }
 type ResponseCreateRoom ResponseRoom
 type ResponseJoinRoom ResponseRoom
+type ResponseRoomsJoin ResponseRoom
 type ResponseKnock ResponseRoom
 
 type ResponseDirectoryRoomGet struct {

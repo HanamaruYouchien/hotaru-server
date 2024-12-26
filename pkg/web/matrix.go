@@ -39,5 +39,8 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.AuthRequired(s.db)).Delete("/v3/directory/room/{roomAlias}", s.apiDirectoryRoomDelete)
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/aliases", s.apiRoomsAliases)
 	r.With(middleware.AuthRequired(s.db)).Get("/v3/joined_rooms", s.apiJoinedRooms)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsInvite]()).Post("/v3/rooms/{roomId}/invite", s.apiRoomsInvite)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestJoin]()).Post("/v3/join/{roomIdOrAlias}", s.apiJoin)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsJoin]()).Post("/v3/rooms/{roomId}/join", s.apiRoomsJoin)
 	return r
 }

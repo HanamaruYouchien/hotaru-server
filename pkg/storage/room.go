@@ -5,17 +5,21 @@ import (
 	"time"
 
 	"hotaru.hana.im/server/pkg/crypto"
+	"xorm.io/xorm/schemas"
 )
 
 type Room struct {
-	RoomId      string `xorm:"pk"`
-	Name        string
-	Topic       string `xorm:"text"`
-	RoomVersion string
-	Visibility  string
-	Creator     string
-	Type        string
-	CreatedAt   time.Time `xorm:"created"`
+	RoomId            string `xorm:"pk"`
+	Name              string
+	Topic             string `xorm:"text"`
+	RoomVersion       string
+	Visibility        string
+	JoinRules         string
+	HistoryVisibility string
+	GuestAccess       string
+	Creator           string
+	Type              string
+	CreatedAt         time.Time `xorm:"created"`
 }
 
 type RoomAlias struct {
@@ -41,8 +45,10 @@ const (
 )
 
 var ErrRoomAliasNotExist = errors.New("alias not exist")
+var ErrAccountRoomNotExist = errors.New("account room not exist")
 var ErrRoomAliasInUsed = errors.New("alias in used")
 var ErrEmptyRoomID = errors.New("empty roomID")
+var ErrNoPermission = errors.New("no permission")
 
 func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (string, error) {
 	roomID, err := crypto.GenerateRoomID()
@@ -160,4 +166,111 @@ func (db *Storage) GetJoinedRooms(localpart string) (roomIDs []string, err error
 	}
 
 	return roomIDs, nil
+}
+
+func (db *Storage) IsAccountRoomExist(roomID, localpart string) error {
+	has, err := db.engine.ID(schemas.PK{localpart, roomID}).Exist(&AccountRoom{})
+	if err != nil {
+		return err
+	}
+	if !has {
+		return ErrAccountRoomNotExist
+	}
+	return nil
+}
+
+func (db *Storage) GetAccountRoom(roomID, localpart string) (*AccountRoom, error) {
+	accountRoom := &AccountRoom{}
+	has, err := db.engine.ID(schemas.PK{localpart, roomID}).Get(accountRoom)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrAccountRoomNotExist
+	}
+	return accountRoom, nil
+}
+
+func (db *Storage) InviteRoom(roomID, from, to string) error {
+	if to == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrNoPermission
+		} else {
+			return err
+		}
+	} else {
+		if accountRoomFrom.Membership != MembershipTypeJoined {
+			return ErrNoPermission
+		}
+		// TODO: check permission
+	}
+
+	id := schemas.PK{to, roomID}
+	if accountRoom, err := db.GetAccountRoom(roomID, to); err == nil {
+		// TODO: use different error types
+		switch accountRoom.Membership {
+		case MembershipTypeBanned, MembershipTypeJoined:
+			return ErrNoPermission
+		}
+		if _, err := db.engine.ID(id).Update(&AccountRoom{Membership: MembershipTypeInvited}); err != nil {
+			return err
+		}
+	} else {
+		if !errors.Is(err, ErrAccountRoomNotExist) {
+			return err
+		}
+		accountRoom := &AccountRoom{
+			Localpart:  to,
+			RoomId:     roomID,
+			Membership: MembershipTypeInvited,
+		}
+		if _, err := db.engine.InsertOne(accountRoom); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *Storage) JoinRoom(roomID, localpart string) error {
+	if localpart == "" {
+		return ErrEmptyLocalpart
+	}
+	if roomID == "" {
+		return ErrEmptyRoomID
+	}
+
+	id := schemas.PK{localpart, roomID}
+	if accountRoom, err := db.GetAccountRoom(roomID, localpart); err == nil {
+		// TODO: use different error types
+		switch accountRoom.Membership {
+		case MembershipTypeBanned, MembershipTypeJoined, MembershipTypeKnocking:
+			return ErrNoPermission
+		}
+		// TODO: check permission
+		if _, err := db.engine.ID(id).Update(&AccountRoom{Membership: MembershipTypeJoined, PowerLevel: 0}); err != nil {
+			return err
+		}
+	} else {
+		if !errors.Is(err, ErrAccountRoomNotExist) {
+			return err
+		}
+		// TODO: check permission
+		accountRoom := &AccountRoom{
+			Localpart:  localpart,
+			RoomId:     roomID,
+			Membership: MembershipTypeJoined,
+			PowerLevel: 0,
+		}
+		if _, err := db.engine.InsertOne(accountRoom); err != nil {
+			return err
+		}
+	}
+	return nil
 }
