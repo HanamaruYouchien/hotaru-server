@@ -47,5 +47,7 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsKick]()).Post("/v3/rooms/{roomId}/kick", s.apiRoomsKick)
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsBan]()).Post("/v3/rooms/{roomId}/ban", s.apiRoomsBan)
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsUnban]()).Post("/v3/rooms/{roomId}/unban", s.apiRoomsUnban)
+	r.Get("/v3/publicRooms", s.apiPublicRoomsGet)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestPublicRoomsPost]()).Post("/v3/publicRooms", s.apiPublicRoomsPost)
 	return r
 }

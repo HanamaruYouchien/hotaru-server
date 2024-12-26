@@ -182,10 +182,10 @@ type ResponseDirectoryListRoomGet struct {
 }
 
 type ResponsePublicRooms struct {
-	Chunk                  PublicRoomsChunk `json:"chunk"`
-	NextBatch              string           `json:"next_batch"`
-	PrevBatch              string           `json:"prev_batch"`
-	TotalRoomCountEstimate int              `json:"total_room_count_estimate"`
+	Chunk                  []PublicRoomsChunk `json:"chunk"`
+	NextBatch              string             `json:"next_batch"`
+	PrevBatch              string             `json:"prev_batch"`
+	TotalRoomCountEstimate int                `json:"total_room_count_estimate"`
 }
 type ResponsePublicRoomsGet ResponsePublicRooms
 type ResponsePublicRoomsPost ResponsePublicRooms

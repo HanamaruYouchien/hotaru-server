@@ -45,11 +45,20 @@ const (
 	MembershipTypeBanned
 )
 
-var ErrRoomAliasNotExist = errors.New("alias not exist")
-var ErrAccountRoomNotExist = errors.New("account room not exist")
-var ErrRoomAliasInUsed = errors.New("alias in used")
-var ErrEmptyRoomID = errors.New("empty roomID")
-var ErrNoPermission = errors.New("no permission")
+const (
+	VisibilityTypePrivate = "private"
+	VisibilityTypePublic  = "public"
+)
+
+var (
+	ErrRoomAliasNotExist   = errors.New("alias not exist")
+	ErrAccountRoomNotExist = errors.New("account room not exist")
+	ErrRoomAliasInUsed     = errors.New("alias in used")
+	ErrEmptyRoomID         = errors.New("empty roomID")
+	ErrNoPermission        = errors.New("no permission")
+	ErrVisibilityNotValid  = errors.New("visibility not valid")
+	ErrRoomNotExist        = errors.New("room not exist")
+)
 
 func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (string, error) {
 	roomID, err := crypto.GenerateRoomID()
@@ -61,6 +70,13 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 		return "", ErrRoomAliasInUsed
 	} else if !errors.Is(err, ErrRoomAliasNotExist) {
 		return "", err
+	}
+
+	if visibility == "" {
+		visibility = VisibilityTypePrivate
+	}
+	if visibility != VisibilityTypePrivate && visibility != VisibilityTypePublic {
+		return "", ErrVisibilityNotValid
 	}
 
 	room := &Room{
@@ -457,4 +473,48 @@ func (db *Storage) RoomUnban(roomID, from, target string) error {
 		}
 	}
 	return nil
+}
+
+func (db *Storage) GetRoom(roomID string) (*Room, error) {
+	room := &Room{}
+	has, err := db.engine.ID(roomID).Get(room)
+	if err != nil {
+		return nil, err
+	}
+	if !has {
+		return nil, ErrRoomNotExist
+	}
+	return room, nil
+}
+
+func (db *Storage) IsRoomExist(roomID string) error {
+	has, err := db.engine.ID(roomID).Exist(&Room{})
+	if err != nil {
+		return err
+	}
+	if !has {
+		return ErrRoomNotExist
+	}
+	return nil
+}
+
+func (db *Storage) UpdateRoomVisibility(roomID, visibility string) error {
+	if visibility == "" {
+		visibility = VisibilityTypePublic
+	}
+	if visibility != VisibilityTypePrivate && visibility != VisibilityTypePublic {
+		return ErrVisibilityNotValid
+	}
+
+	_, err := db.engine.ID(roomID).Update(&Room{Visibility: visibility})
+	return err
+}
+
+func (db *Storage) GetPublicRooms() ([]Room, error) {
+	// TODO: term of search
+	rooms := make([]Room, 0)
+	if err := db.engine.Where("visibility = ?", VisibilityTypePublic).Limit(10).Find(&rooms); err != nil {
+		return nil, err
+	}
+	return rooms, nil
 }

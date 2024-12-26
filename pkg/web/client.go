@@ -821,3 +821,102 @@ func (s *Server) apiRoomsUnban(w http.ResponseWriter, r *http.Request) {
 	}
 	middleware.RenderJSON(w, &struct{}{})
 }
+
+func (s *Server) apiDirectoryListRoomGet(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	room, err := s.db.GetRoom(roomID)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoomNotExist) {
+			middleware.ErrorNotFound(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseDirectoryListRoomGet{
+		Visibility: room.Visibility,
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiDirectoryListRoomPut(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	// TODO: check permission
+	account := middleware.GetAccount(r)
+	_ = account
+
+	form := middleware.GetObject(r).(*model.RequestDirectoryListRoomPut)
+
+	if err := s.db.IsRoomExist(roomID); err != nil {
+		if errors.Is(err, storage.ErrRoomNotExist) {
+			middleware.ErrorNotFound(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	if err := s.db.UpdateRoomVisibility(roomID, form.Visibility); err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiPublicRoomsGet(w http.ResponseWriter, _ *http.Request) {
+	// TODO: term of search
+	rooms, err := s.db.GetPublicRooms()
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	resp := &model.ResponsePublicRoomsGet{
+		Chunk: make([]model.PublicRoomsChunk, 0, len(rooms)),
+	}
+
+	for _, v := range rooms {
+		resp.Chunk = append(resp.Chunk, model.PublicRoomsChunk{
+			RoomID:           s.toRoomID(v.RoomId),
+			Name:             v.Name,
+			NumJoinedMembers: 0,
+			WorldReadable:    false,
+			GuestCanJoin:     false,
+		})
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiPublicRoomsPost(w http.ResponseWriter, _ *http.Request) {
+	// TODO: term of search
+	rooms, err := s.db.GetPublicRooms()
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	resp := &model.ResponsePublicRoomsPost{
+		Chunk: make([]model.PublicRoomsChunk, 0, len(rooms)),
+	}
+
+	for _, v := range rooms {
+		resp.Chunk = append(resp.Chunk, model.PublicRoomsChunk{
+			RoomID:           s.toRoomID(v.RoomId),
+			Name:             v.Name,
+			NumJoinedMembers: 0,
+			WorldReadable:    false,
+			GuestCanJoin:     false,
+		})
+	}
+	middleware.RenderJSON(w, resp)
+}
