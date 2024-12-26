@@ -9,8 +9,8 @@ import (
 )
 
 type Event struct {
-	EventId      string `xorm:"pk"`
-	RoomId       string `xorm:"pk"`
+	EventId      string `xorm:"pk 'event_id'"`
+	RoomId       string `xorm:"pk 'room_id'"`
 	Type         string
 	Sender       string
 	StateKey     string
@@ -241,8 +241,11 @@ type ThumbnailInfo struct {
 var ErrEventNotExist = errors.New("event not exist")
 
 func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
-	event := &Event{}
-	has, err := db.engine.ID(schemas.PK{roomID, eventID}).Get(event)
+	event := &Event{
+		Content: "",
+	}
+	has, err := db.engine.ID(schemas.PK{eventID, roomID}).Get(event)
+	// has, err := db.engine.Table(&Event{}).Where("event_id = ? AND room_id = ?", eventID, roomID).Get(event)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +257,7 @@ func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 
 func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 	members := make([]string, 0)
-	err := db.engine.Table(&AccountRoom{}).Cols("localpart").Where("roomid = ?", roomID).Find(&members)
+	err := db.engine.Table(&AccountRoom{}).Cols("localpart").Where("room_id = ?", roomID).Find(&members)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +266,7 @@ func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 
 func (db *Storage) SendText(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
 	eventID, _ := crypto.GenerateEventID()
-	_, err := db.engine.Exec("INSERT INTO event (event_id, room_id, type, sender, content) VALUES (?, ?, ?, ?, ?)", eventID, roomID, eventType, sender, text)
+	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, Sender: sender, Content: text})
 	if err != nil {
 		return "", err
 	}
