@@ -487,6 +487,11 @@ func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	eventID := chi.URLParam(r, "eventId")
+	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		return
+	}
+
 	event, err := s.db.GetEvent(roomID, eventID)
 	if err != nil {
 		middleware.ErrorNotFoundMsg(w, err.Error())
@@ -497,7 +502,11 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	// TODO: get sender info
+	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		return
+	}
+
 	res, err := s.db.GetJoinedMembers(roomID)
 	if err != nil {
 		middleware.ErrorUnknown(w, http.StatusInternalServerError)
@@ -520,7 +529,11 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	// TODO: get sender info
+	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		return
+	}
+
 	res, err := s.db.GetMembers(roomID)
 	if err != nil {
 		middleware.ErrorUnknown(w, http.StatusInternalServerError)
@@ -537,6 +550,10 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
+	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		return
+	}
 
 	bodyBytes, errRenderContent := io.ReadAll(r.Body)
 	// jsonString := string(bodyBytes)
