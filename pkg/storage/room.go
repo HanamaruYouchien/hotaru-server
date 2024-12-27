@@ -58,6 +58,7 @@ var (
 	ErrNoPermission        = errors.New("no permission")
 	ErrVisibilityNotValid  = errors.New("visibility not valid")
 	ErrRoomNotExist        = errors.New("room not exist")
+	ErrAccountNotInRoom    = errors.New("account not in room")
 )
 
 func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (string, error) {
@@ -517,4 +518,18 @@ func (db *Storage) GetPublicRooms() ([]Room, error) {
 		return nil, err
 	}
 	return rooms, nil
+}
+
+func (db *Storage) IsAccountInRoom(roomID string, localpart string) error {
+	accountRoom, err := db.GetAccountRoom(roomID, localpart)
+	if err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrAccountNotInRoom
+		}
+		return err
+	}
+	if accountRoom.Membership != MembershipTypeJoined {
+		return ErrAccountNotInRoom
+	}
+	return nil
 }

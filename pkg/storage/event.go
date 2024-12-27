@@ -243,18 +243,6 @@ type ThumbnailInfo struct {
 
 var ErrEventNotExist = errors.New("event not exist")
 
-// TODO: move to room.go
-func (db *Storage) CheckSenderInRoom(roomID string, sender string) bool {
-	has, err := db.engine.ID(schemas.PK{sender, roomID}).Exist(&AccountRoom{})
-	if err != nil {
-		return false
-	}
-	if !has {
-		return false
-	}
-	return true
-}
-
 func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 	event := &Event{}
 	has, err := db.engine.ID(schemas.PK{eventID, roomID}).Get(event)
@@ -269,7 +257,7 @@ func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 
 func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 	if roomID == "" {
-		return []string{}, nil
+		return nil, ErrEmptyRoomID
 	}
 	members := make([]string, 0)
 	err := db.engine.Table(&AccountRoom{}).Cols("localpart").Where("room_id = ?", roomID).Find(&members)
