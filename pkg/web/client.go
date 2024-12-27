@@ -23,6 +23,14 @@ func (s *Server) toRoomAlias(alias string) string {
 	return fmt.Sprintf("#%s:%s", alias, s.domain)
 }
 
+func (s *Server) toRoomID(roomID string) string {
+	return fmt.Sprintf("!%s:%s", roomID, s.domain)
+}
+
+func (s *Server) toEventID(eventID string) string {
+	return fmt.Sprintf("$%s:%s", eventID, s.domain)
+}
+
 var userIDParser = regexp.MustCompile(`^@([0-9a-z_\-+=./]+):(.+)$`)
 var ErrInvalidUserID = errors.New("invalid user id")
 
@@ -483,6 +491,14 @@ func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, resp)
 }
 
+func (s *Server) formatEvent(inputEvent storage.Event) storage.Event {
+	event := inputEvent
+	event.EventId = s.toEventID(inputEvent.EventId)
+	event.RoomId = s.toRoomID(inputEvent.RoomId)
+	event.Sender = s.toUserID(inputEvent.Sender)
+	return event
+}
+
 // Get Event
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
@@ -497,13 +513,17 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 		middleware.ErrorNotFoundMsg(w, err.Error())
 		return
 	}
-	middleware.RenderJSON(w, &event)
+
+	res := model.EventResponse{}
+	res.Event = s.formatEvent(*event)
+
+	middleware.RenderJSON(w, res.Event)
 }
 
 func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
 
@@ -530,7 +550,7 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
 
@@ -539,10 +559,13 @@ func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
-	formattedRes := map[string]interface{}{
-		"chunk": res,
+
+	Members := model.MembersResponse{}
+	for _, event := range res {
+		Members.Events = append(Members.Events, s.formatEvent(event))
 	}
-	middleware.RenderJSON(w, formattedRes)
+
+	middleware.RenderJSON(w, Members)
 }
 
 // Send Event
@@ -551,7 +574,7 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
 	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
 
@@ -567,8 +590,7 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	var eventID string
 	var err error
 
-	// TODO: get sender info
-	//		 check txnId
+	// TODO: check txnId
 	switch requestBody.Msgtype {
 	case storage.MessageTypeText, storage.MessageTypeEmote, storage.MessageTypeNotice:
 		eventID, err = s.db.SendText(roomID, eventType, txnID, bodyBytes, "user01")

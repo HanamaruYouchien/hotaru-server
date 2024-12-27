@@ -10,14 +10,14 @@ import (
 )
 
 type Event struct {
-	EventId      string `xorm:"pk 'event_id'"`
-	RoomId       string `xorm:"pk 'room_id'"`
-	Type         string
-	Sender       string
-	StateKey     string
-	CreatedAt    time.Time       `xorm:"created"`
-	Content      json.RawMessage `xorm:"text"`
-	UnsignedData json.RawMessage `xorm:"text"`
+	EventId      string          `xorm:"pk 'event_id'" json:"event_id"`
+	RoomId       string          `xorm:"pk 'room_id'" json:"room_id"`
+	Type         string          `json:"type"`
+	Sender       string          `json:"sender"`
+	StateKey     string          `json:"state_key,omitempty"`
+	CreatedAt    time.Time       `xorm:"created" json:"origin_server_ts"`
+	Content      json.RawMessage `xorm:"text" json:"content"`
+	UnsignedData json.RawMessage `xorm:"text" json:"unsigned,omitempty"`
 }
 
 const (

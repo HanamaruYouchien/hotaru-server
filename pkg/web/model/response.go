@@ -1,5 +1,7 @@
 package model
 
+import "hotaru.hana.im/server/pkg/storage"
+
 type ResponseError struct {
 	ErrCode string `json:"errcode"`
 	Error   string `json:"error,omitempty"`
@@ -221,6 +223,10 @@ type CapabilitiesResponse struct {
 	} `json:"capabilities"`
 }
 
+type EventResponse struct {
+	Event storage.Event
+}
+
 type Member struct {
 	AvatarURL   *string `json:"avatar_url"`
 	DisplayName string  `json:"display_name"`
@@ -228,4 +234,8 @@ type Member struct {
 
 type JoinedMembersResponse struct {
 	Joined map[string]Member `json:"joined"`
+}
+
+type MembersResponse struct {
+	Events []interface{} `json:"chunk"`
 }
