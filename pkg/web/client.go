@@ -518,15 +518,28 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 	middleware.RenderJSON(w, JoinedMembers)
 }
 
-// Send Event
+func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	// TODO: get sender info
+	res, err := s.db.GetMembers(roomID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	formattedRes := map[string]interface{}{
+		"chunk": res,
+	}
+	middleware.RenderJSON(w, formattedRes)
+}
 
+// Send Event
 func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
 
 	bodyBytes, errRenderContent := io.ReadAll(r.Body)
-	jsonString := string(bodyBytes)
+	// jsonString := string(bodyBytes)
 	requestBody := storage.EventRoomMessageContent{}
 	errDecodeBody := json.Unmarshal(bodyBytes, &requestBody)
 	if errDecodeBody != nil || errRenderContent != nil {
@@ -541,7 +554,7 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	//		 check txnId
 	switch requestBody.Msgtype {
 	case storage.MessageTypeText, storage.MessageTypeEmote, storage.MessageTypeNotice:
-		eventID, err = s.db.SendText(roomID, eventType, txnID, jsonString, "user01")
+		eventID, err = s.db.SendText(roomID, eventType, txnID, bodyBytes, "user01")
 
 	case storage.MessageTypeImage:
 		requestBody := storage.EventRoomMessageImageContent{}

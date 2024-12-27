@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -14,9 +15,9 @@ type Event struct {
 	Type         string
 	Sender       string
 	StateKey     string
-	CreatedAt    time.Time `xorm:"created"`
-	Content      any       `xorm:"text"`
-	UnsignedData any       `xorm:"text"`
+	CreatedAt    time.Time       `xorm:"created"`
+	Content      json.RawMessage `xorm:"text"`
+	UnsignedData json.RawMessage `xorm:"text"`
 }
 
 const (
@@ -240,10 +241,9 @@ type ThumbnailInfo struct {
 
 var ErrEventNotExist = errors.New("event not exist")
 
+// TODO Fix that
 func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
-	event := &Event{
-		Content: "",
-	}
+	event := &Event{}
 	has, err := db.engine.ID(schemas.PK{eventID, roomID}).Get(event)
 	// has, err := db.engine.Table(&Event{}).Where("event_id = ? AND room_id = ?", eventID, roomID).Get(event)
 	if err != nil {
@@ -264,7 +264,28 @@ func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
 	return members, nil
 }
 
-func (db *Storage) SendText(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+func (db *Storage) GetMembers(roomID string) ([]Event, error) {
+	members := make([]Event, 0)
+	err := db.engine.Table(&Event{}).
+		Select("*").
+		Where("event_id IN ("+
+			"SELECT event_id FROM ("+
+			"  SELECT event_id, sender, ROW_NUMBER() OVER (PARTITION BY sender ORDER BY MAX(created_at) DESC) as rn "+
+			"  FROM event "+
+			"  WHERE room_id = ? "+
+			"  GROUP BY event_id, sender "+
+			") as ranked_events WHERE rn = 1"+
+			")", roomID).
+		Find(&members)
+
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
+// Send
+func (db *Storage) SendText(roomID string, eventType string, txnId string, text json.RawMessage, sender string) (string, error) {
 	eventID, _ := crypto.GenerateEventID()
 	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, Sender: sender, Content: text})
 	if err != nil {
