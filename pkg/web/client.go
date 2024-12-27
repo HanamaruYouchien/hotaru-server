@@ -625,6 +625,43 @@ func (s *Server) apiGetMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 // Send Event
+func (s *Server) apiState(w http.ResponseWriter, r *http.Request) {
+	sender := middleware.GetAccount(r).Localpart
+	roomID := chi.URLParam(r, "roomID")
+	eventType := chi.URLParam(r, "eventType")
+	stateKey := chi.URLParam(r, "stateKey")
+	if !s.db.CheckSenderinRoom(roomID, sender) {
+		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+		return
+	}
+
+	form := middleware.GetObject(r).(*model.RequestSendState)
+	var eventID string
+	var err error
+
+	// switch eventType {
+	// case storage.EventTypeRoomName:
+
+	// default:
+	// 	middleware.ErrorUnknown(w, http.StatusBadRequest)
+	// 	return
+	// }
+
+	formContent, errMarshalJson := json.Marshal(form)
+	if errMarshalJson != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	eventID, err = s.db.SendState(roomID, eventType, stateKey, formContent, sender)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	res := model.EventSentResponse{}
+	res.EventID = s.toEventID(eventID)
+	middleware.RenderJSON(w, res)
+}
+
 func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	sender := middleware.GetAccount(r).Localpart
 	roomID := chi.URLParam(r, "roomID")
@@ -639,10 +676,16 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	var eventID string
 	var err error
 
+	formContent, errMarshalJson := json.Marshal(form)
+	if errMarshalJson != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+
 	// TODO: check txnId
 	switch form.MsgType {
 	case storage.MessageTypeText, storage.MessageTypeEmote, storage.MessageTypeNotice:
-		eventID, err = s.db.SendText(roomID, eventType, txnID, json.RawMessage(form.Body), sender)
+		eventID, err = s.db.SendText(roomID, eventType, txnID, json.RawMessage(formContent), sender)
 
 	// case storage.MessageTypeImage:
 	// 	requestBody := storage.EventRoomMessageImageContent{}
@@ -686,6 +729,6 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := model.EventSentResponse{}
-	res.EventID = eventID
+	res.EventID = s.toEventID(eventID)
 	middleware.RenderJSON(w, res)
 }

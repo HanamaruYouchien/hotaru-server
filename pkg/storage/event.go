@@ -307,6 +307,15 @@ func (db *Storage) GetMessages(roomID string, limit int, dir string, from time.T
 }
 
 // Send
+func (db *Storage) SendState(roomID string, eventType string, stateKey string, content json.RawMessage, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, StateKey: stateKey, Sender: sender, Content: content})
+	if err != nil {
+		return "", err
+	}
+	return eventID, nil
+}
+
 func (db *Storage) SendText(roomID string, eventType string, txnId string, text json.RawMessage, sender string) (string, error) {
 	eventID, _ := crypto.GenerateEventID()
 	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, Sender: sender, Content: text})
