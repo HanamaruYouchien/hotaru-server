@@ -415,6 +415,24 @@ func (s *Server) apiCapabilitiesNegotiation(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+func (s *Server) apiCreateRoom(w http.ResponseWriter, r *http.Request) {
+	form := middleware.GetObject(r).(*model.RequestCreateRoom)
+	account := middleware.GetAccount(r)
+
+	roomID, err := s.db.CreateRoom(form.Name, form.Topic, form.Visibility, account.Localpart, form.RoomAliasName)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoomAliasInUsed) {
+			middleware.ErrorRoomInUse(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseCreateRoom{RoomID: s.toRoomID(roomID)}
+	middleware.RenderJSON(w, resp)
+}
+
 func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 	roomAlias := chi.URLParam(r, "roomAlias")
 	alias, domain, err := parseAlias(roomAlias)
@@ -434,7 +452,7 @@ func (s *Server) apiDirectoryRoomGet(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := &model.ResponseDirectoryRoomGet{
-		RoomID:  roomID,
+		RoomID:  s.toRoomID(roomID),
 		Servers: []string{s.domain},
 	}
 	middleware.RenderJSON(w, resp)
@@ -449,6 +467,11 @@ func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := middleware.GetObject(r).(*model.RequestDirectoryRoomPut)
+	roomID, domain, err := parseRoomID(form.RoomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
 
 	// TODO: check permission
 
@@ -460,7 +483,7 @@ func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := s.db.CreateRoomAlias(alias, form.RoomID); err != nil {
+	if err := s.db.CreateRoomAlias(alias, roomID); err != nil {
 		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
@@ -495,11 +518,412 @@ func (s *Server) apiDirectoryRoomDelete(w http.ResponseWriter, r *http.Request) 
 
 func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	aliases := s.db.GetRoomAliasesByRoomID(roomID)
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	// TODO: check permission
+
+	aliases, err := s.db.GetRoomAliasesByRoomID(roomID)
+	if err != nil {
+		if errors.Is(err, storage.ErrEmptyRoomID) {
+			middleware.ErrorForbiddenMsg(w, "roomID is empty")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
 	for k, v := range aliases {
 		aliases[k] = s.toRoomAlias(v)
 	}
 	resp := &model.ResponseRoomsAliases{Aliases: aliases}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiJoinedRooms(w http.ResponseWriter, r *http.Request) {
+	account := middleware.GetAccount(r)
+	joinedRooms, err := s.db.GetJoinedRooms(account.Localpart)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+
+	for k, v := range joinedRooms {
+		joinedRooms[k] = s.toRoomID(v)
+	}
+
+	resp := &model.ResponseJoinedRooms{JoinedRooms: joinedRooms}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiRoomsInvite(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsInvite)
+	userID, domain, err := parseUserID(form.UserID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+
+	// TODO: check permission
+	// TODO: reason
+
+	if err := s.db.RoomInvite(roomID, account.Localpart, userID); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorUnknown(w, http.StatusBadRequest)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsJoin(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorForbiddenMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsJoin)
+	_ = form
+
+	// TODO: check permission
+	// TODO: reason
+
+	if err := s.db.RoomJoin(roomID, account.Localpart); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			fallthrough
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseRoomsJoin{RoomID: s.toRoomID(roomID)}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiJoin(w http.ResponseWriter, r *http.Request) {
+	roomIdOrAlias := chi.URLParam(r, "roomIdOrAlias")
+	alias, domain, err := parseAlias(roomIdOrAlias)
+	var roomID = ""
+	if err == nil {
+		if domain != s.domain {
+			middleware.ErrorForbiddenMsg(w, "room id or alias invalid")
+			return
+		}
+
+		roomID, err = s.db.GetRoomIDByRoomAlias(alias)
+		if err != nil {
+			if errors.Is(err, storage.ErrRoomAliasNotExist) {
+				middleware.ErrorForbiddenMsg(w, "room alias not found")
+			} else {
+				middleware.ErrorUnknown(w, http.StatusInternalServerError)
+				return
+			}
+		}
+	} else {
+		roomID, domain, err = parseRoomID(roomID)
+		if err != nil || domain != s.domain {
+			middleware.ErrorForbiddenMsg(w, "room id invalid")
+			return
+		}
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestJoin)
+	_ = form
+
+	// TODO: check permission
+	// TODO: reason
+
+	if err := s.db.RoomJoin(roomID, account.Localpart); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			fallthrough
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseJoinRoom{RoomID: s.toRoomID(roomID)}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiRoomsLeave(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsLeave)
+	_ = form
+
+	if err := s.db.RoomLeave(roomID, account.Localpart); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorInvalidParam(w)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsKick(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsKick)
+	userID, domain, err := parseUserID(form.UserID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+
+	if err := s.db.RoomKick(roomID, account.Localpart, userID); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorInvalidParam(w)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsForget(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+
+	if err := s.db.RoomForget(roomID, account.Localpart); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorInvalidParam(w)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorUnknownMsg(w, http.StatusBadRequest, "user in room")
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsBan(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsBan)
+	userID, domain, err := parseUserID(form.UserID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+
+	if err := s.db.RoomBan(roomID, account.Localpart, userID); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorInvalidParam(w)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiRoomsUnban(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	form := middleware.GetObject(r).(*model.RequestRoomsUnban)
+	userID, domain, err := parseUserID(form.UserID)
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusBadRequest)
+		return
+	}
+
+	if err := s.db.RoomUnban(roomID, account.Localpart, userID); err != nil {
+		switch {
+		case errors.Is(err, storage.ErrEmptyLocalpart):
+			fallthrough
+		case errors.Is(err, storage.ErrEmptyRoomID):
+			middleware.ErrorInvalidParam(w)
+		case errors.Is(err, storage.ErrNoPermission):
+			middleware.ErrorForbidden(w)
+		default:
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiDirectoryListRoomGet(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	room, err := s.db.GetRoom(roomID)
+	if err != nil {
+		if errors.Is(err, storage.ErrRoomNotExist) {
+			middleware.ErrorNotFound(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	resp := &model.ResponseDirectoryListRoomGet{
+		Visibility: room.Visibility,
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiDirectoryListRoomPut(w http.ResponseWriter, r *http.Request) {
+	roomID := chi.URLParam(r, "roomId")
+	roomID, domain, err := parseRoomID(roomID)
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+
+	// TODO: check permission
+	account := middleware.GetAccount(r)
+	_ = account
+
+	form := middleware.GetObject(r).(*model.RequestDirectoryListRoomPut)
+
+	if err := s.db.IsRoomExist(roomID); err != nil {
+		if errors.Is(err, storage.ErrRoomNotExist) {
+			middleware.ErrorNotFound(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+	if err := s.db.UpdateRoomVisibility(roomID, form.Visibility); err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	middleware.RenderJSON(w, &struct{}{})
+}
+
+func (s *Server) apiPublicRoomsGet(w http.ResponseWriter, _ *http.Request) {
+	// TODO: term of search
+	rooms, err := s.db.GetPublicRooms()
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	resp := &model.ResponsePublicRoomsGet{
+		Chunk: make([]model.PublicRoomsChunk, 0, len(rooms)),
+	}
+
+	for _, v := range rooms {
+		resp.Chunk = append(resp.Chunk, model.PublicRoomsChunk{
+			RoomID:           s.toRoomID(v.RoomId),
+			Name:             v.Name,
+			NumJoinedMembers: 0,
+			WorldReadable:    false,
+			GuestCanJoin:     false,
+		})
+	}
+	middleware.RenderJSON(w, resp)
+}
+
+func (s *Server) apiPublicRoomsPost(w http.ResponseWriter, _ *http.Request) {
+	// TODO: term of search
+	rooms, err := s.db.GetPublicRooms()
+	if err != nil {
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		return
+	}
+	resp := &model.ResponsePublicRoomsPost{
+		Chunk: make([]model.PublicRoomsChunk, 0, len(rooms)),
+	}
+
+	for _, v := range rooms {
+		resp.Chunk = append(resp.Chunk, model.PublicRoomsChunk{
+			RoomID:           s.toRoomID(v.RoomId),
+			Name:             v.Name,
+			NumJoinedMembers: 0,
+			WorldReadable:    false,
+			GuestCanJoin:     false,
+		})
+	}
 	middleware.RenderJSON(w, resp)
 }
 
@@ -522,8 +946,12 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	eventID := chi.URLParam(r, "eventId")
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+	if err := s.db.IsAccountInRoom(roomID, middleware.GetAccount(r).Localpart); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -540,13 +968,17 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
-	roomID := chi.URLParam(r, "roomId")
-	if roomID == "" {
+	roomID, domain, err := parseRoomID(chi.URLParam(r, "roomId"))
+	if err != nil || domain != s.domain {
 		middleware.ErrorInvalidParamMsg(w, "room id invalid")
 		return
 	}
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+	if err := s.db.IsAccountInRoom(roomID, middleware.GetAccount(r).Localpart); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -572,8 +1004,12 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+	if err := s.db.IsAccountInRoom(roomID, middleware.GetAccount(r).Localpart); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
 		return
 	}
 
@@ -592,11 +1028,20 @@ func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetMessage(w http.ResponseWriter, r *http.Request) {
-	roomID, _, _ := parseRoomID(chi.URLParam(r, "roomId"))
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+	roomID, domain, err := parseRoomID(chi.URLParam(r, "roomId"))
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
 		return
 	}
+	if err := s.db.IsAccountInRoom(roomID, middleware.GetAccount(r).Localpart); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
 	request := model.RequestGetMessage{}
 	request.Dir = r.URL.Query().Get("dir")
 	request.Filter = r.URL.Query().Get("filter")
@@ -667,8 +1112,12 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
-	if !s.db.CheckSenderinRoom(roomID, sender) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+	if err := s.db.IsAccountInRoom(roomID, sender); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
 		return
 	}
 

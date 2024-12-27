@@ -59,6 +59,10 @@ func ErrorUnknownToken(w http.ResponseWriter) {
 	Error(w, http.StatusUnauthorized, model.ErrCodeUnknownToken, "")
 }
 
+func ErrorRoomInUse(w http.ResponseWriter) {
+	Error(w, http.StatusBadRequest, model.ErrCodeRoomInUse, "room alias is already taken")
+}
+
 func ErrorLimitExceeded(w http.ResponseWriter) {
 	Error(w, http.StatusTooManyRequests, model.ErrCodeLimitExceeded, "rate limit exceeded")
 }

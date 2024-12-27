@@ -33,7 +33,7 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/capabilities", s.apiCapabilitiesNegotiation)
 
-	// r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestCreateRoom]()).Post("/v3/createRoom")
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestCreateRoom]()).Post("/v3/createRoom", s.apiCreateRoom)
 	r.Get("/v3/directory/room/{roomAlias}", s.apiDirectoryRoomGet)
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestDirectoryRoomPut]()).Put("/v3/directory/room/{roomAlias}", s.apiDirectoryRoomPut)
 	r.With(middleware.AuthRequired(s.db)).Delete("/v3/directory/room/{roomAlias}", s.apiDirectoryRoomDelete)
@@ -53,5 +53,17 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestSendState]()).Put("/v3/rooms/{roomID}/state/{eventType}/{stateKey}", s.apiState)
 	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestSendMessage]()).Put("/v3/rooms/{roomID}/send/{eventType}/{txnID}", s.apiSend)
 	// r.With(middleware.AuthRequired(s.db)).Put("/v3/rooms/{roomID}/redact/{eventID}/{txnID}", s.sync)
+
+	r.With(middleware.AuthRequired(s.db)).Get("/v3/joined_rooms", s.apiJoinedRooms)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsInvite]()).Post("/v3/rooms/{roomId}/invite", s.apiRoomsInvite)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestJoin]()).Post("/v3/join/{roomIdOrAlias}", s.apiJoin)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsJoin]()).Post("/v3/rooms/{roomId}/join", s.apiRoomsJoin)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsLeave]()).Post("/v3/rooms/{roomId}/leave", s.apiRoomsLeave)
+	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Post("/v3/rooms/{roomId}/forget", s.apiRoomsForget)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsKick]()).Post("/v3/rooms/{roomId}/kick", s.apiRoomsKick)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsBan]()).Post("/v3/rooms/{roomId}/ban", s.apiRoomsBan)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestRoomsUnban]()).Post("/v3/rooms/{roomId}/unban", s.apiRoomsUnban)
+	r.Get("/v3/publicRooms", s.apiPublicRoomsGet)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestPublicRoomsPost]()).Post("/v3/publicRooms", s.apiPublicRoomsPost)
 	return r
 }
