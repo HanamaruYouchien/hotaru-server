@@ -522,7 +522,7 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
 	eventID := chi.URLParam(r, "eventId")
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+	if !s.db.CheckSenderInRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
 		return
 	}
@@ -540,12 +540,12 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
-	roomID := chi.URLParam(r, "roomId")
-	if roomID == "" {
+	roomID, domain, err := parseRoomID(chi.URLParam(r, "roomId"))
+	if err != nil || domain != s.domain {
 		middleware.ErrorInvalidParamMsg(w, "room id invalid")
 		return
 	}
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+	if !s.db.CheckSenderInRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
@@ -572,7 +572,7 @@ func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+	if !s.db.CheckSenderInRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
@@ -592,8 +592,12 @@ func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetMessage(w http.ResponseWriter, r *http.Request) {
-	roomID, _, _ := parseRoomID(chi.URLParam(r, "roomId"))
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+	roomID, domain, err := parseRoomID(chi.URLParam(r, "roomId"))
+	if err != nil || domain != s.domain {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
+	if !s.db.CheckSenderInRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
@@ -630,7 +634,7 @@ func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
-	if !s.db.CheckSenderinRoom(roomID, sender) {
+	if !s.db.CheckSenderInRoom(roomID, sender) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
