@@ -51,7 +51,7 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 
 	// Send Event
 	// r.With(middleware.AuthRequired(s.db)).Put("/v3/rooms/{roomID}/state/{eventType}/{stateKey}", s.sync)
-	r.With(middleware.AuthRequired(s.db)).Put("/v3/rooms/{roomID}/send/{eventType}/{txnID}", s.apiSend)
+	r.With(middleware.AuthRequired(s.db), middleware.Bind[model.RequestSendMessage]()).Put("/v3/rooms/{roomID}/send/{eventType}/{txnID}", s.apiSend)
 	// r.With(middleware.AuthRequired(s.db)).Put("/v3/rooms/{roomID}/redact/{eventID}/{txnID}", s.sync)
 	return r
 }

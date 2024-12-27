@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -51,6 +50,17 @@ func parseAlias(roomAlias string) (alias, domain string, err error) {
 	matches := aliasParser.FindStringSubmatch(roomAlias)
 	if len(matches) == 0 {
 		return "", "", ErrInvalidUserID
+	}
+	return matches[1], matches[2], nil
+}
+
+var roomIDParser = regexp.MustCompile(`^!(.+):(.+)$`)
+var ErrInvalidRoomID = errors.New("invalid room id")
+
+func parseRoomID(room string) (roomID, domain string, err error) {
+	matches := roomIDParser.FindStringSubmatch(room)
+	if len(matches) == 0 {
+		return "", "", ErrInvalidRoomID
 	}
 	return matches[1], matches[2], nil
 }
@@ -519,7 +529,7 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 
 	event, err := s.db.GetEvent(roomID, eventID)
 	if err != nil {
-		middleware.ErrorNotFoundMsg(w, err.Error())
+		middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -531,6 +541,10 @@ func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) apiGetJoinedMembers(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomId")
+	if roomID == "" {
+		middleware.ErrorInvalidParamMsg(w, "room id invalid")
+		return
+	}
 	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
@@ -578,7 +592,7 @@ func (s *Server) apiGetMembers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) apiGetMessage(w http.ResponseWriter, r *http.Request) {
-	roomID := chi.URLParam(r, "roomId")
+	roomID, _, _ := parseRoomID(chi.URLParam(r, "roomId"))
 	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
@@ -612,62 +626,55 @@ func (s *Server) apiGetMessage(w http.ResponseWriter, r *http.Request) {
 
 // Send Event
 func (s *Server) apiSend(w http.ResponseWriter, r *http.Request) {
+	sender := middleware.GetAccount(r).Localpart
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	txnID := chi.URLParam(r, "txnID")
-	if !s.db.CheckSenderinRoom(roomID, middleware.GetAccount(r).Localpart) {
+	if !s.db.CheckSenderinRoom(roomID, sender) {
 		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
 		return
 	}
 
-	bodyBytes, errRenderContent := io.ReadAll(r.Body)
-	// jsonString := string(bodyBytes)
-	requestBody := storage.EventRoomMessageContent{}
-	errDecodeBody := json.Unmarshal(bodyBytes, &requestBody)
-	if errDecodeBody != nil || errRenderContent != nil {
-		middleware.ErrorUnknown(w, http.StatusBadRequest)
-		return
-	}
-
+	form := middleware.GetObject(r).(*model.RequestSendMessage)
 	var eventID string
 	var err error
 
 	// TODO: check txnId
-	switch requestBody.Msgtype {
+	switch form.MsgType {
 	case storage.MessageTypeText, storage.MessageTypeEmote, storage.MessageTypeNotice:
-		eventID, err = s.db.SendText(roomID, eventType, txnID, bodyBytes, "user01")
+		eventID, err = s.db.SendText(roomID, eventType, txnID, json.RawMessage(form.Body), sender)
 
-	case storage.MessageTypeImage:
-		requestBody := storage.EventRoomMessageImageContent{}
-		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
-			middleware.ErrorUnknown(w, http.StatusBadRequest)
-			return
-		}
-		// eventID, err = s.db.SendImage(roomID, eventType, txnID, jsonString, "user01")
+	// case storage.MessageTypeImage:
+	// 	requestBody := storage.EventRoomMessageImageContent{}
+	// 	if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+	// 		middleware.ErrorUnknown(w, http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	// eventID, err = s.db.SendImage(roomID, eventType, txnID, jsonString, "user01")
 
-	case storage.MessageTypeFile:
-		requestBody := storage.EventRoomMessageFileContent{}
-		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
-			middleware.ErrorUnknown(w, http.StatusBadRequest)
-			return
-		}
-		// eventID, err = s.db.SendFile(roomID, eventType, txnID, jsonString, "user01")
+	// case storage.MessageTypeFile:
+	// 	requestBody := storage.EventRoomMessageFileContent{}
+	// 	if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+	// 		middleware.ErrorUnknown(w, http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	// eventID, err = s.db.SendFile(roomID, eventType, txnID, jsonString, "user01")
 
-	case storage.MessageTypeAudio:
-		requestBody := storage.EventRoomMessageAudioContent{}
-		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
-			middleware.ErrorUnknown(w, http.StatusBadRequest)
-			return
-		}
-		// eventID, err = s.db.SendAudio(roomID, eventType, txnID, jsonString, "user01")
+	// case storage.MessageTypeAudio:
+	// 	requestBody := storage.EventRoomMessageAudioContent{}
+	// 	if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+	// 		middleware.ErrorUnknown(w, http.StatusBadRequest)
+	// 		return
+	// 	}
+	// 	// eventID, err = s.db.SendAudio(roomID, eventType, txnID, jsonString, "user01")
 
-	case storage.MessageTypeVideo:
-		requestBody := storage.EventRoomMessageVideoContent{}
-		if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
-			middleware.ErrorUnknown(w, http.StatusBadRequest)
-			return
-		}
-		// eventID, err = s.db.SendVideo(roomID, eventType, txnID, jsonString, "user01")
+	// case storage.MessageTypeVideo:
+	// 	requestBody := storage.EventRoomMessageVideoContent{}
+	// 	if errDecodeBody := json.Unmarshal(bodyBytes, &requestBody); errDecodeBody != nil {
+	// 		middleware.ErrorUnknown(w, http.StatusBadRequest)
+	// 		return
+	// 	}
+	// eventID, err = s.db.SendVideo(roomID, eventType, txnID, jsonString, "user01")
 
 	default:
 		middleware.ErrorUnknown(w, http.StatusBadRequest)

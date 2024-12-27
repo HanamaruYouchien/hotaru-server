@@ -11,8 +11,8 @@ import (
 )
 
 type Event struct {
-	EventId        string          `xorm:"pk 'event_id'" json:"event_id"`
-	RoomId         string          `xorm:"pk 'room_id'" json:"room_id"`
+	EventId        string          `xorm:"pk" json:"event_id"`
+	RoomId         string          `xorm:"pk" json:"room_id"`
 	Type           string          `json:"type"`
 	Sender         string          `json:"sender"`
 	StateKey       string          `json:"state_key,omitempty"`

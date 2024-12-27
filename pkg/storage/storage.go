@@ -59,5 +59,6 @@ func (db *Storage) Init() error {
 	db.engine.Exec("ALTER TABLE account_room ADD CONSTRAINT account_room_room_id_fkey FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE ON UPDATE CASCADE;")
 
 	// Event FK
+	db.engine.Exec("ALTER TABLE event ADD CONSTRAINT event_room_id_fkey FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE ON UPDATE CASCADE;")
 	return nil
 }

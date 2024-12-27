@@ -223,3 +223,8 @@ type RequestGetMessage struct {
 	Limit  int       `json:"limit,omitempty"`
 	To     time.Time `json:"to,omitempty"`
 }
+
+type RequestSendMessage struct {
+	Body    string `json:"body"`
+	MsgType string `json:"msgtype"`
+}
