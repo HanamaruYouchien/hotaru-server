@@ -1,6 +1,10 @@
 package model
 
-import "hotaru.hana.im/server/pkg/storage"
+import (
+	"time"
+
+	"hotaru.hana.im/server/pkg/storage"
+)
 
 const (
 	AuthenticationTypePassword           = "m.login.password"
@@ -210,4 +214,12 @@ type RequestPublicRoomsPost struct {
 type Filter struct {
 	GenericSearchTerm string   `json:"generic_search_term,omitempty"`
 	RoomTypes         []string `json:"room_types,omitempty"`
+}
+
+type RequestGetMessage struct {
+	Dir    string    `json:"dir,omitempty"`
+	Filter string    `json:"filter,omitempty"`
+	From   time.Time `json:"from,omitempty"`
+	Limit  int       `json:"limit,omitempty"`
+	To     time.Time `json:"to,omitempty"`
 }

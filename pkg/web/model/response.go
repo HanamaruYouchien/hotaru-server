@@ -1,6 +1,10 @@
 package model
 
-import "hotaru.hana.im/server/pkg/storage"
+import (
+	"encoding/json"
+
+	"hotaru.hana.im/server/pkg/storage"
+)
 
 type ResponseError struct {
 	ErrCode string `json:"errcode"`
@@ -224,7 +228,33 @@ type CapabilitiesResponse struct {
 }
 
 type EventResponse struct {
-	Event storage.Event
+	Event storage.Event `json:"events"`
+}
+
+type EventContent struct {
+	// This type is correspond to `Event` in https://spec.matrix.org/v1.13/client-server-api/#get_matrixclientv3sync,
+	// with only content and type in a standard ClientEvent.
+	// It might can be replaced by storage.Event for lazy work..
+	Content json.RawMessage `json:"content"`
+	Type    string          `json:"type"`
+}
+
+type AccountData struct {
+	Events []EventContent `json:"events"`
+}
+
+type Presence struct {
+	Events []EventContent `json:"events"`
+}
+
+type SyncResponse struct {
+	AccountData AccountData `json:"account_data"` // The global private data created by this user.
+	// The Next two are used to e2ee
+	// DeviceLists DeviceLists `json:"device_lists"`
+	// DeviceOneTimeKeysCount map[string]int `json:"device_one_time_keys_count"`
+	NextBatch string   `json:"next_batch"`
+	Presence  Presence `json:"presence"` // The updates to the presence status of other users.
+	// Rooms     Rooms    `json:"rooms"`
 }
 
 type Member struct {
@@ -237,5 +267,15 @@ type JoinedMembersResponse struct {
 }
 
 type MembersResponse struct {
-	Events []interface{} `json:"chunk"`
+	Events []storage.Event `json:"chunk"`
+}
+
+type MessagesResponse struct {
+	Events []storage.Event `json:"chunk"`
+	Start  string          `json:"start"`
+	End    string          `json:"end"`
+}
+
+type EventSentResponse struct {
+	EventID string `json:"event_id"`
 }

@@ -6,18 +6,20 @@ import (
 	"time"
 
 	"hotaru.hana.im/server/pkg/crypto"
+	// "hotaru.hana.im/server/pkg/web/model"
 	"xorm.io/xorm/schemas"
 )
 
 type Event struct {
-	EventId      string          `xorm:"pk 'event_id'" json:"event_id"`
-	RoomId       string          `xorm:"pk 'room_id'" json:"room_id"`
-	Type         string          `json:"type"`
-	Sender       string          `json:"sender"`
-	StateKey     string          `json:"state_key,omitempty"`
-	CreatedAt    time.Time       `xorm:"created" json:"origin_server_ts"`
-	Content      json.RawMessage `xorm:"text" json:"content"`
-	UnsignedData json.RawMessage `xorm:"text" json:"unsigned,omitempty"`
+	EventId        string          `xorm:"pk 'event_id'" json:"event_id"`
+	RoomId         string          `xorm:"pk 'room_id'" json:"room_id"`
+	Type           string          `json:"type"`
+	Sender         string          `json:"sender"`
+	StateKey       string          `json:"state_key,omitempty"`
+	CreatedAt      time.Time       `xorm:"created" json:"-"`
+	OriginServerTs int64           `xorm:"-" json:"origin_server_ts"`
+	Content        json.RawMessage `xorm:"text" json:"content"`
+	UnsignedData   json.RawMessage `xorm:"text" json:"unsigned,omitempty"`
 }
 
 const (
@@ -291,6 +293,17 @@ func (db *Storage) GetMembers(roomID string) ([]Event, error) {
 		return nil, err
 	}
 	return members, nil
+}
+
+func (db *Storage) GetMessages(roomID string, limit int, dir string, from time.Time, to time.Time) ([]Event, error) {
+	// limit int, dir bool, from string, to string, filter string
+	messages := make([]Event, 0)
+	db.engine.Table(&Event{}).Select("*").
+		Where("room_id = ?", roomID).
+		And("created_at > ? AND created_at < ?", from, to).
+		Desc("created_at").
+		Find(&messages)
+	return messages, nil
 }
 
 // Send

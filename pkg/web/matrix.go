@@ -40,13 +40,13 @@ func (s *Server) matrixClientRouters() *chi.Mux {
 	r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/aliases", s.apiRoomsAliases)
 
 	// Events
-	// r.With(middleware.AuthRequired(s.db)).Get("/v3/sync", s.sync)
+	r.With(middleware.AuthRequired(s.db)).Get("/v3/sync", s.sync)
 	r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/event/{eventId}", s.apiGetEvent)
 	r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/joined_members", s.apiGetJoinedMembers)
 	r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/members", s.apiGetMembers)
 	// r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomID}/state", s.)
 	// r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomID}/state/{eventType}/{stateKey}", s.sync)
-	// r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomID}/messages", s.sync)
+	r.With(middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomId}/messages", s.apiGetMessage)
 	// r.With(middleware.RateLimiter(), middleware.AuthRequired(s.db)).Get("/v3/rooms/{roomID}/timestamp_to_event", s.sync)
 
 	// Send Event
