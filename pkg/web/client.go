@@ -1075,8 +1075,12 @@ func (s *Server) apiState(w http.ResponseWriter, r *http.Request) {
 	roomID := chi.URLParam(r, "roomID")
 	eventType := chi.URLParam(r, "eventType")
 	stateKey := chi.URLParam(r, "stateKey")
-	if !s.db.CheckSenderinRoom(roomID, sender) {
-		middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room.")
+	if err := s.db.IsAccountInRoom(roomID, middleware.GetAccount(r).Localpart); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) {
+			middleware.ErrorForbiddenMsg(w, "You aren’t a member of the room and weren’t previously a member of the room.")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
 		return
 	}
 
