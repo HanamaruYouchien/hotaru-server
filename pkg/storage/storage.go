@@ -35,7 +35,7 @@ func NewStorage(engineType, engineUrl string, logger *zerolog.Logger) (*Storage,
 	}
 
 	// sync db
-	if err := eng.Sync(&Account{}, &Device{}, &Profile{}, &Room{}, &RoomAlias{}, &AccountRoom{}); err != nil {
+	if err := eng.Sync(&Account{}, &Device{}, &Profile{}, &Room{}, &RoomAlias{}, &AccountRoom{}, &Event{}); err != nil {
 		return nil, err
 	}
 
@@ -53,7 +53,7 @@ func parseDriverName(engineType string) string {
 }
 
 func (db *Storage) Init() error {
-	if err := db.engine.Sync(&Account{}, &Device{}, &Profile{}, &Room{}, &RoomAlias{}, &AccountRoom{}); err != nil {
+	if err := db.engine.Sync(&Account{}, &Device{}, &Profile{}, &Room{}, &RoomAlias{}, &AccountRoom{}, &Event{}); err != nil {
 		return err
 	}
 	db.engine.Exec("ALTER TABLE device ADD CONSTRAINT device_localpart_fkey FOREIGN KEY (localpart) REFERENCES account(localpart) ON DELETE CASCADE ON UPDATE CASCADE;")
@@ -61,5 +61,8 @@ func (db *Storage) Init() error {
 	db.engine.Exec("ALTER TABLE room_alias ADD CONSTRAINT room_alias_room_id_fkey FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE ON UPDATE CASCADE;")
 	db.engine.Exec("ALTER TABLE account_room ADD CONSTRAINT account_room_localpart_fkey FOREIGN KEY (localpart) REFERENCES account(localpart) ON DELETE CASCADE ON UPDATE CASCADE;")
 	db.engine.Exec("ALTER TABLE account_room ADD CONSTRAINT account_room_room_id_fkey FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE ON UPDATE CASCADE;")
+
+	// Event FK
+	db.engine.Exec("ALTER TABLE event ADD CONSTRAINT event_room_id_fkey FOREIGN KEY (room_id) REFERENCES room(room_id) ON DELETE CASCADE ON UPDATE CASCADE;")
 	return nil
 }

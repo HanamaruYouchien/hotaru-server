@@ -1,21 +1,25 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
+	"hotaru.hana.im/server/pkg/crypto"
+	// "hotaru.hana.im/server/pkg/web/model"
 	"xorm.io/xorm/schemas"
 )
 
 type Event struct {
-	EventId      string `xorm:"pk"`
-	RoomId       string `xorm:"pk"`
-	Type         string
-	Sender       string
-	StateKey     string
-	CreatedAt    time.Time `xorm:"created"`
-	Content      any       `xorm:"text"`
-	UnsignedData any       `xorm:"text"`
+	EventId        string          `xorm:"pk" json:"event_id"`
+	RoomId         string          `xorm:"pk" json:"room_id"`
+	Type           string          `json:"type"`
+	Sender         string          `json:"sender"`
+	StateKey       string          `json:"state_key,omitempty"`
+	CreatedAt      time.Time       `xorm:"created" json:"-"`
+	OriginServerTs int64           `xorm:"-" json:"origin_server_ts"`
+	Content        json.RawMessage `xorm:"text" json:"content"`
+	UnsignedData   json.RawMessage `xorm:"text" json:"unsigned,omitempty"`
 }
 
 const (
@@ -239,9 +243,21 @@ type ThumbnailInfo struct {
 
 var ErrEventNotExist = errors.New("event not exist")
 
+// TODO: move to room.go
+func (db *Storage) CheckSenderInRoom(roomID string, sender string) bool {
+	has, err := db.engine.ID(schemas.PK{sender, roomID}).Exist(&AccountRoom{})
+	if err != nil {
+		return false
+	}
+	if !has {
+		return false
+	}
+	return true
+}
+
 func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 	event := &Event{}
-	has, err := db.engine.ID(schemas.PK{roomID, eventID}).Get(event)
+	has, err := db.engine.ID(schemas.PK{eventID, roomID}).Get(event)
 	if err != nil {
 		return nil, err
 	}
@@ -249,4 +265,81 @@ func (db *Storage) GetEvent(roomID, eventID string) (*Event, error) {
 		return nil, ErrEventNotExist
 	}
 	return event, nil
+}
+
+func (db *Storage) GetJoinedMembers(roomID string) ([]string, error) {
+	if roomID == "" {
+		return []string{}, nil
+	}
+	members := make([]string, 0)
+	err := db.engine.Table(&AccountRoom{}).Cols("localpart").Where("room_id = ?", roomID).Find(&members)
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
+func (db *Storage) GetMembers(roomID string) ([]Event, error) {
+	members := make([]Event, 0)
+	err := db.engine.Table(&Event{}).
+		Select("*").
+		Where("event_id IN ("+
+			"SELECT event_id FROM ("+
+			"  SELECT event_id, sender, ROW_NUMBER() OVER (PARTITION BY sender ORDER BY MAX(created_at) DESC) as rn "+
+			"  FROM event "+
+			"  WHERE room_id = ? "+
+			"  GROUP BY event_id, sender "+
+			") as ranked_events WHERE rn = 1"+
+			")", roomID).
+		Find(&members)
+
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
+func (db *Storage) GetMessages(roomID string, limit int, dir string, from time.Time, to time.Time) ([]Event, error) {
+	// limit int, dir bool, from string, to string, filter string
+	messages := make([]Event, 0)
+	db.engine.Table(&Event{}).Select("*").
+		Where("room_id = ?", roomID).
+		And("created_at > ? AND created_at < ?", from, to).
+		Desc("created_at").
+		Find(&messages)
+	return messages, nil
+}
+
+// Send
+func (db *Storage) SendText(roomID string, eventType string, txnId string, text json.RawMessage, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, Sender: sender, Content: text})
+	if err != nil {
+		return "", err
+	}
+	return eventID, nil
+}
+
+func (db *Storage) SendImage(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendFile(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendAudio(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
+}
+
+func (db *Storage) SendVideo(roomID string, eventType string, txnId string, text string, sender string) (string, error) {
+	eventID, _ := crypto.GenerateEventID()
+	// TODO
+	return eventID, nil
 }
