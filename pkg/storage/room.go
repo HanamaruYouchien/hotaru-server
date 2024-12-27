@@ -217,17 +217,12 @@ func (db *Storage) RoomInvite(roomID, from, target string) error {
 		return ErrEmptyRoomID
 	}
 
-	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
-		if errors.Is(err, ErrAccountRoomNotExist) {
+	if err := db.CheckPermission(roomID, from, 0); err != nil {
+		if errors.Is(err, ErrAccountNotInRoom) || errors.Is(err, ErrNoPermission) {
 			return ErrNoPermission
 		} else {
 			return err
 		}
-	} else {
-		if accountRoomFrom.Membership != MembershipTypeJoined {
-			return ErrNoPermission
-		}
-		// TODO: check permission
 	}
 
 	if accountRoom, err := db.GetAccountRoom(roomID, target); err == nil {
@@ -325,17 +320,12 @@ func (db *Storage) RoomKick(roomID, from, target string) error {
 		return ErrEmptyRoomID
 	}
 
-	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
-		if errors.Is(err, ErrAccountRoomNotExist) {
-			return nil // kick unrelated account is allowed
+	if err := db.CheckPermission(roomID, from, 50); err != nil {
+		if errors.Is(err, ErrAccountNotInRoom) || errors.Is(err, ErrNoPermission) {
+			return ErrNoPermission
 		} else {
 			return err
 		}
-	} else {
-		if accountRoomFrom.Membership != MembershipTypeJoined {
-			return ErrNoPermission
-		}
-		// TODO: check permission
 	}
 
 	accountRoom, err := db.GetAccountRoom(roomID, target)
@@ -406,17 +396,12 @@ func (db *Storage) RoomBan(roomID, from, target string) error {
 		return ErrEmptyRoomID
 	}
 
-	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
-		if errors.Is(err, ErrAccountRoomNotExist) {
+	if err := db.CheckPermission(roomID, from, 50); err != nil {
+		if errors.Is(err, ErrAccountNotInRoom) || errors.Is(err, ErrNoPermission) {
 			return ErrNoPermission
 		} else {
 			return err
 		}
-	} else {
-		if accountRoomFrom.Membership != MembershipTypeJoined {
-			return ErrNoPermission
-		}
-		// TODO: check permission
 	}
 
 	if err := db.IsAccountRoomExist(roomID, target); err != nil {
@@ -447,17 +432,12 @@ func (db *Storage) RoomUnban(roomID, from, target string) error {
 		return ErrEmptyRoomID
 	}
 
-	if accountRoomFrom, err := db.GetAccountRoom(roomID, from); err != nil {
-		if errors.Is(err, ErrAccountRoomNotExist) {
+	if err := db.CheckPermission(roomID, from, 50); err != nil {
+		if errors.Is(err, ErrAccountNotInRoom) || errors.Is(err, ErrNoPermission) {
 			return ErrNoPermission
 		} else {
 			return err
 		}
-	} else {
-		if accountRoomFrom.Membership != MembershipTypeJoined {
-			return ErrNoPermission
-		}
-		// TODO: check permission
 	}
 
 	if accountRoom, err := db.GetAccountRoom(roomID, target); err != nil {
@@ -530,6 +510,23 @@ func (db *Storage) IsAccountInRoom(roomID string, localpart string) error {
 	}
 	if accountRoom.Membership != MembershipTypeJoined {
 		return ErrAccountNotInRoom
+	}
+	return nil
+}
+
+func (db *Storage) CheckPermission(roomID string, localpart string, permission int) error {
+	accountRoom, err := db.GetAccountRoom(roomID, localpart)
+	if err != nil {
+		if errors.Is(err, ErrAccountRoomNotExist) {
+			return ErrAccountNotInRoom
+		}
+		return err
+	}
+	if accountRoom.Membership != MembershipTypeJoined {
+		return ErrAccountNotInRoom
+	}
+	if accountRoom.PowerLevel < permission {
+		return ErrNoPermission
 	}
 	return nil
 }

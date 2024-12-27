@@ -467,13 +467,22 @@ func (s *Server) apiDirectoryRoomPut(w http.ResponseWriter, r *http.Request) {
 	}
 
 	form := middleware.GetObject(r).(*model.RequestDirectoryRoomPut)
+	account := middleware.GetAccount(r)
+
 	roomID, domain, err := parseRoomID(form.RoomID)
 	if err != nil || domain != s.domain {
 		middleware.ErrorInvalidParamMsg(w, "room id invalid")
 		return
 	}
 
-	// TODO: check permission
+	if err := s.db.CheckPermission(roomID, account.Localpart, 100); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) || errors.Is(err, storage.ErrNoPermission) {
+			middleware.ErrorForbidden(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
 
 	if err := s.db.IsRoomAliasExist(alias); err == nil {
 		middleware.ErrorUnknownMsg(w, http.StatusConflict, "room alias already exists")
@@ -498,11 +507,20 @@ func (s *Server) apiDirectoryRoomDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// TODO: check permission
-
-	if err := s.db.IsRoomAliasExist(alias); err != nil {
+	roomID, err := s.db.GetRoomIDByRoomAlias(alias)
+	if err != nil {
 		if errors.Is(err, storage.ErrRoomAliasNotExist) {
 			middleware.ErrorNotFoundMsg(w, "room alias not found")
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
+
+	account := middleware.GetAccount(r)
+	if err := s.db.CheckPermission(roomID, account.Localpart, 100); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) || errors.Is(err, storage.ErrNoPermission) {
+			middleware.ErrorForbidden(w)
 		} else {
 			middleware.ErrorUnknown(w, http.StatusInternalServerError)
 		}
@@ -524,7 +542,15 @@ func (s *Server) apiRoomsAliases(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: check permission
+	account := middleware.GetAccount(r)
+	if err := s.db.CheckPermission(roomID, account.Localpart, 100); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) || errors.Is(err, storage.ErrNoPermission) {
+			middleware.ErrorForbidden(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
 
 	aliases, err := s.db.GetRoomAliasesByRoomID(roomID)
 	if err != nil {
@@ -574,7 +600,6 @@ func (s *Server) apiRoomsInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: check permission
 	// TODO: reason
 
 	if err := s.db.RoomInvite(roomID, account.Localpart, userID); err != nil {
@@ -605,7 +630,6 @@ func (s *Server) apiRoomsJoin(w http.ResponseWriter, r *http.Request) {
 	form := middleware.GetObject(r).(*model.RequestRoomsJoin)
 	_ = form
 
-	// TODO: check permission
 	// TODO: reason
 
 	if err := s.db.RoomJoin(roomID, account.Localpart); err != nil {
@@ -657,7 +681,6 @@ func (s *Server) apiJoin(w http.ResponseWriter, r *http.Request) {
 	form := middleware.GetObject(r).(*model.RequestJoin)
 	_ = form
 
-	// TODO: check permission
 	// TODO: reason
 
 	if err := s.db.RoomJoin(roomID, account.Localpart); err != nil {
@@ -860,11 +883,17 @@ func (s *Server) apiDirectoryListRoomPut(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// TODO: check permission
 	account := middleware.GetAccount(r)
-	_ = account
-
 	form := middleware.GetObject(r).(*model.RequestDirectoryListRoomPut)
+
+	if err := s.db.CheckPermission(roomID, account.Localpart, 100); err != nil {
+		if errors.Is(err, storage.ErrAccountNotInRoom) || errors.Is(err, storage.ErrNoPermission) {
+			middleware.ErrorForbidden(w)
+		} else {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+		}
+		return
+	}
 
 	if err := s.db.IsRoomExist(roomID); err != nil {
 		if errors.Is(err, storage.ErrRoomNotExist) {
