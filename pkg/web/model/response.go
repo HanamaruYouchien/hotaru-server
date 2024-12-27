@@ -231,7 +231,95 @@ type EventResponse struct {
 	Event storage.Event `json:"events"`
 }
 
-type EventContent struct {
+type SyncResponse struct {
+	AccountData AccountData `json:"account_data,omitempty"` // The global private data created by this user.
+	NextBatch   string      `json:"next_batch"`
+	Presence    Presence    `json:"presence,omitempty"` // The updates to the presence status of other users.
+	Rooms       Rooms       `json:"rooms,omitempty"`
+
+	// The Next two are used to e2ee
+	// DeviceLists DeviceLists `json:"device_lists,omitempty"`
+	// DeviceOneTimeKeysCount map[string]int `json:"device_one_time_keys_count,omitempty"`
+
+	// Send-To-Device required
+	// ToDevice ToDevice `json:"to_device,omitempty"`
+}
+
+type Rooms struct {
+	Invite map[string]InviteState `json:"invite,omitempty"`
+	Join   map[string]JoinedRoom  `json:"join,omitempty"`
+	Knock  map[string]KnockedRoom `json:"knock,omitempty"`
+	Leave  map[string]LeftRoom    `json:"leave,omitempty"`
+}
+
+type InvitedRoom struct {
+	InviteState InviteState `json:"invite_state,omitempty"`
+}
+
+type JoinedRoom struct {
+	AccountData               AccountData                         `json:"account_data,omitempty"`
+	Ephemeral                 Ephemeral                           `json:"ephemeral,omitempty"`
+	State                     State                               `json:"state,omitempty"`
+	Summary                   RoomSummary                         `json:"summary,omitempty"`
+	Timeline                  Timeline                            `json:"timeline,omitempty"`
+	UnreadNotifications       UnreadNotificationCounts            `json:"unread_notifications,omitempty"`
+	UnreadThreadNotifications map[string]ThreadNotificationCounts `json:"unread_thread_notifications,omitempty"`
+}
+
+type KnockedRoom struct {
+	KnockState KnockState `json:"knock_state,omitempty"`
+}
+
+type LeftRoom struct {
+	AccountData AccountData `json:"account_data,omitempty"`
+	State       State       `json:"state,omitempty"`
+	Timeline    Timeline    `json:"timeline,omitempty"`
+}
+
+type InviteState struct {
+	Events []StrippedStateEvent `json:"events,omitempty"`
+}
+
+type KnockState struct {
+	Events []StrippedStateEvent `json:"events,omitempty"`
+}
+
+type StrippedStateEvent struct {
+	Content  json.RawMessage `json:"content"`
+	Sender   string          `json:"sender"`
+	StateKey string          `json:"state_key"`
+	Type     string          `json:"type"`
+}
+
+type Timeline struct {
+	Events    []storage.Event `json:"events"` // no room id
+	Limited   bool            `json:"limited,omitempty"`
+	PrevBatch string          `json:"prev_batch,omitempty"`
+}
+
+type State struct {
+	Events []storage.Event `json:"events,omitempty"` // no room id
+}
+
+type RoomSummary struct {
+	Heroes             []string `json:"m.heroes,omitempty"`
+	InvitedMemberCount int      `json:"m.invited_member_count,omitempty"`
+	JoinedMemberCount  int      `json:"m.joined_member_count,omitempty"`
+}
+
+type AccountData struct {
+	Events []Event `json:"events,omitempty"`
+}
+
+type Presence struct {
+	Events []Event `json:"events,omitempty"`
+}
+
+type Ephemeral struct {
+	Events []Event `json:"events,omitempty"`
+}
+
+type Event struct {
 	// This type is correspond to `Event` in https://spec.matrix.org/v1.13/client-server-api/#get_matrixclientv3sync,
 	// with only content and type in a standard ClientEvent.
 	// It might can be replaced by storage.Event for lazy work..
@@ -239,22 +327,14 @@ type EventContent struct {
 	Type    string          `json:"type"`
 }
 
-type AccountData struct {
-	Events []EventContent `json:"events"`
+type UnreadNotificationCounts struct {
+	HighlightCount    int `json:"highlight_count,omitempty"`
+	NotificationCount int `json:"notification_count,omitempty"`
 }
 
-type Presence struct {
-	Events []EventContent `json:"events"`
-}
-
-type SyncResponse struct {
-	AccountData AccountData `json:"account_data"` // The global private data created by this user.
-	// The Next two are used to e2ee
-	// DeviceLists DeviceLists `json:"device_lists"`
-	// DeviceOneTimeKeysCount map[string]int `json:"device_one_time_keys_count"`
-	NextBatch string   `json:"next_batch"`
-	Presence  Presence `json:"presence"` // The updates to the presence status of other users.
-	// Rooms     Rooms    `json:"rooms"`
+type ThreadNotificationCounts struct {
+	HighlightCount    int `json:"highlight_count,omitempty"`
+	NotificationCount int `json:"notification_count,omitempty"`
 }
 
 type Member struct {
