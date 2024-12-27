@@ -224,6 +224,8 @@ type RequestGetMessage struct {
 	To     time.Time `json:"to,omitempty"`
 }
 
+type RequestSendState map[string]interface{}
+
 type RequestSendMessage struct {
 	Body    string `json:"body"`
 	MsgType string `json:"msgtype"`
