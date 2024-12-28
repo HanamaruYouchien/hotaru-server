@@ -298,6 +298,22 @@ func (db *Storage) GetMessages(roomID string, limit int, dir string, from time.T
 	return messages, nil
 }
 
+func (db *Storage) GetSyncTimeline(roomID string, limit int, from time.Time) ([]Event, bool, error) {
+	messages := make([]Event, 0)
+	err := db.engine.Table(&Event{}).Select("*").
+		Where("room_id = ?", roomID).
+		And("created_at > ?", from).
+		Desc("created_at").
+		Limit(limit).
+		Find(&messages)
+	// TODO: ADD a return time.Time value
+	// if limited, should return a timestamp that refer the next `limit` numbers of event's timestamp beyond the event. To offer the `prev_batch` respond.
+	if err != nil {
+		return nil, false, err
+	}
+	return messages, len(messages) == limit, nil
+}
+
 // Function to Create and Insert an Event
 // TODO: make a type for input?
 func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string, content json.RawMessage, unsignedData json.RawMessage, sender string, txnId string) (string, error) {

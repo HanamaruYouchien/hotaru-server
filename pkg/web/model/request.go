@@ -221,7 +221,7 @@ type RequestSync struct {
 	FullState   bool      `json:"full_state,omitempty"`
 	SetPresence string    `json:"set_presence,omitempty"`
 	Since       time.Time `json:"since,omitempty"`
-	TimeOut     int       `json:time_out,omitempty`
+	TimeOut     int       `json:"time_out,omitempty"`
 }
 
 type RequestGetMessage struct {

@@ -953,7 +953,7 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 	if fullstate := r.URL.Query().Get("fullstate"); fullstate != "" {
 		request.FullState = fullstate == "true"
 	}
-	if setpresence := r.URL.Query().Get("online"); setpresence != "" {
+	if setpresence := r.URL.Query().Get("set_presence"); setpresence != "" {
 		request.SetPresence = setpresence
 	}
 	if since := r.URL.Query().Get("since"); since != "" {
@@ -963,7 +963,15 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 		request.TimeOut, _ = strconv.Atoi(timeout)
 	}
 
-	response := model.SyncResponse{}
+	println(request.Since.String())
+
+	response := model.SyncResponse{
+		Rooms: model.Rooms{
+			Join:  make(map[string]model.JoinedRoom),
+			Leave: make(map[string]model.LeftRoom),
+		},
+	}
+
 	// Account Data
 
 	// Next Batch
@@ -973,9 +981,43 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 	// Rooms
 
 	{
+		relatedRooms, err := s.db.GetRelatedRooms(account.Localpart)
+		if err != nil {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+			return
+		}
+		for _, room := range relatedRooms {
+			switch room.Membership {
+			case storage.MembershipTypeInvited:
+				currentRoom := model.InvitedRoom{}
+				// TODO: fill events
+				response.Rooms.Invite[s.toRoomID(room.RoomId)] = currentRoom
+			case storage.MembershipTypeJoined:
+				currentRoom := model.JoinedRoom{}
+				var errGetTimeline error
+				// the integer is the limit of the number of events to return
+				// TODO: should be replaced by the limit on the filter
+				// TODO: ADD a return time.Time value
+				// if limited, should return a timestamp that refer the next `limit` numbers of event's timestamp beyond the event. To offer the `prev_batch` respond.
+				currentRoom.Timeline.Events, currentRoom.Timeline.Limited, errGetTimeline = s.db.GetSyncTimeline(room.RoomId, 100, request.Since)
+				if errGetTimeline != nil {
+					middleware.ErrorUnknown(w, http.StatusInternalServerError)
+					return
+				}
+				if currentRoom.Timeline.Limited {
+					currentRoom.Timeline.PrevBatch = time.Now().Format(time.RFC3339)
+				}
+				response.Rooms.Join[s.toRoomID(room.RoomId)] = currentRoom
 
+			case storage.MembershipTypeKnocking:
+
+				// case storage.MembershipLeave:
+
+			}
+		}
 	}
 
+	middleware.RenderJSON(w, response)
 }
 
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
