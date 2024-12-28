@@ -936,6 +936,14 @@ func (s *Server) formatEvent(inputEvent storage.Event) storage.Event {
 	return event
 }
 
+func (s *Server) formatEvents(inputEvents []storage.Event) []storage.Event {
+	events := make([]storage.Event, 0, len(inputEvents))
+	for _, inputEvent := range inputEvents {
+		events = append(events, s.formatEvent(inputEvent))
+	}
+	return events
+}
+
 // Get Event
 func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 	account := middleware.GetAccount(r)
@@ -1000,6 +1008,7 @@ func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 				// TODO: ADD a return time.Time value
 				// if limited, should return a timestamp that refer the next `limit` numbers of event's timestamp beyond the event. To offer the `prev_batch` respond.
 				currentRoom.Timeline.Events, currentRoom.Timeline.Limited, errGetTimeline = s.db.GetSyncTimeline(room.RoomId, 100, request.Since)
+				currentRoom.Timeline.Events = s.formatEvents(currentRoom.Timeline.Events)
 				if errGetTimeline != nil {
 					middleware.ErrorUnknown(w, http.StatusInternalServerError)
 					return
