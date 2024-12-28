@@ -248,10 +248,10 @@ type SyncResponse struct {
 }
 
 type Rooms struct {
-	Invite map[string]InviteState `json:"invite,omitempty"`
-	Join   map[string]JoinedRoom  `json:"join,omitempty"`
-	Knock  map[string]KnockedRoom `json:"knock,omitempty"`
-	Leave  map[string]LeftRoom    `json:"leave,omitempty"`
+	Invite map[string]InvitedRoom `json:"invite"`
+	Join   map[string]JoinedRoom  `json:"join"`
+	Knock  map[string]KnockedRoom `json:"knock"`
+	Leave  map[string]LeftRoom    `json:"leave"`
 }
 
 type InvitedRoom struct {
@@ -295,7 +295,7 @@ type StrippedStateEvent struct {
 
 type Timeline struct {
 	Events    []storage.Event `json:"events"` // no room id
-	Limited   bool            `json:"limited,omitempty"`
+	Limited   bool            `json:"limited"`
 	PrevBatch string          `json:"prev_batch,omitempty"`
 }
 

@@ -186,6 +186,19 @@ func (db *Storage) GetJoinedRooms(localpart string) (roomIDs []string, err error
 	return roomIDs, nil
 }
 
+func (db *Storage) GetRelatedRooms(localpart string) (rooms []AccountRoom, err error) {
+	if localpart == "" {
+		return nil, ErrEmptyLocalpart
+	}
+
+	rooms = make([]AccountRoom, 0)
+	if err := db.engine.Table(&AccountRoom{}).Where("localpart = ?", localpart).And("membership != ?", MembershipTypeUnrelated).Find(&rooms); err != nil {
+		return nil, err
+	}
+
+	return rooms, nil
+}
+
 func (db *Storage) IsAccountRoomExist(roomID, localpart string) error {
 	has, err := db.engine.ID(schemas.PK{localpart, roomID}).Exist(&AccountRoom{})
 	if err != nil {

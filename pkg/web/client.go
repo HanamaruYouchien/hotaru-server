@@ -965,11 +965,97 @@ func (s *Server) formatEvent(inputEvent storage.Event) storage.Event {
 	return event
 }
 
+func (s *Server) formatEvents(inputEvents []storage.Event) []storage.Event {
+	events := make([]storage.Event, 0, len(inputEvents))
+	for _, inputEvent := range inputEvents {
+		events = append(events, s.formatEvent(inputEvent))
+	}
+	return events
+}
+
 // Get Event
 func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 	account := middleware.GetAccount(r)
 	_ = account
-	// TODO do it
+	request := model.RequestSync{
+		Filter:      "",
+		FullState:   false,
+		SetPresence: "online",
+		Since:       time.Unix(0, 0),
+		TimeOut:     0,
+	}
+	if filter := r.URL.Query().Get("filter"); filter != "" {
+		request.Filter = filter
+	}
+	if fullstate := r.URL.Query().Get("fullstate"); fullstate != "" {
+		request.FullState = fullstate == "true"
+	}
+	if setpresence := r.URL.Query().Get("set_presence"); setpresence != "" {
+		request.SetPresence = setpresence
+	}
+	if since := r.URL.Query().Get("since"); since != "" {
+		request.Since, _ = time.Parse(time.RFC3339, since)
+	}
+	if timeout := r.URL.Query().Get("timeout"); timeout != "" {
+		request.TimeOut, _ = strconv.Atoi(timeout)
+	}
+
+	println(request.Since.String())
+
+	response := model.SyncResponse{
+		Rooms: model.Rooms{
+			Join:  make(map[string]model.JoinedRoom),
+			Leave: make(map[string]model.LeftRoom),
+		},
+	}
+
+	// Account Data
+
+	// Next Batch
+	response.NextBatch = time.Now().Format(time.RFC3339)
+	// Presence
+
+	// Rooms
+
+	{
+		relatedRooms, err := s.db.GetRelatedRooms(account.Localpart)
+		if err != nil {
+			middleware.ErrorUnknown(w, http.StatusInternalServerError)
+			return
+		}
+		for _, room := range relatedRooms {
+			switch room.Membership {
+			case storage.MembershipTypeInvited:
+				currentRoom := model.InvitedRoom{}
+				// TODO: fill events
+				response.Rooms.Invite[s.toRoomID(room.RoomId)] = currentRoom
+			case storage.MembershipTypeJoined:
+				currentRoom := model.JoinedRoom{}
+				var errGetTimeline error
+				// the integer is the limit of the number of events to return
+				// TODO: should be replaced by the limit on the filter
+				// TODO: ADD a return time.Time value
+				// if limited, should return a timestamp that refer the next `limit` numbers of event's timestamp beyond the event. To offer the `prev_batch` respond.
+				currentRoom.Timeline.Events, currentRoom.Timeline.Limited, errGetTimeline = s.db.GetSyncTimeline(room.RoomId, 100, request.Since)
+				currentRoom.Timeline.Events = s.formatEvents(currentRoom.Timeline.Events)
+				if errGetTimeline != nil {
+					middleware.ErrorUnknown(w, http.StatusInternalServerError)
+					return
+				}
+				if currentRoom.Timeline.Limited {
+					currentRoom.Timeline.PrevBatch = time.Now().Format(time.RFC3339)
+				}
+				response.Rooms.Join[s.toRoomID(room.RoomId)] = currentRoom
+
+			case storage.MembershipTypeKnocking:
+
+				// case storage.MembershipLeave:
+
+			}
+		}
+	}
+
+	middleware.RenderJSON(w, response)
 }
 
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {
