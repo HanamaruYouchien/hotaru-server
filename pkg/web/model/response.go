@@ -248,10 +248,10 @@ type SyncResponse struct {
 }
 
 type Rooms struct {
-	Invite map[string]InvitedRoom `json:"invite,omitempty"`
-	Join   map[string]JoinedRoom  `json:"join,omitempty"`
-	Knock  map[string]KnockedRoom `json:"knock,omitempty"`
-	Leave  map[string]LeftRoom    `json:"leave,omitempty"`
+	Invite map[string]InvitedRoom `json:"invite"`
+	Join   map[string]JoinedRoom  `json:"join"`
+	Knock  map[string]KnockedRoom `json:"knock"`
+	Leave  map[string]LeftRoom    `json:"leave"`
 }
 
 type InvitedRoom struct {
