@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -100,6 +101,20 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 		PowerLevel: 100,
 	}
 
+	createRoomContextRaw, _ := json.Marshal(&EventRoomCreateContent{
+		Creator:     creator,
+		RoomVersion: "v10",
+	})
+	// TODO: fill display name
+	roomMemberContextRaw, _ := json.Marshal(&EventRoomMemberContent{
+		Membership: "join",
+	})
+	roomAliasContextRaw, _ := json.Marshal(&EventRoomCanonicalAliasContent{
+		Alias: alias, // TODO: add domain suffix
+	})
+	roomNameContextRaw, _ := json.Marshal(&EventRoomNameContent{Name: name})
+	roomTopicContextRaw, _ := json.Marshal(&EventRoomTopicContent{Topic: topic})
+
 	// TODO: Apply events
 	session := db.engine.NewSession()
 	defer session.Close()
@@ -107,14 +122,39 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 	if err := session.Begin(); err != nil {
 		return "", nil
 	}
+
 	if _, err := session.Insert(room, accountRoom); err != nil {
 		return "", err
 	}
+	if _, err := createEvent(session, roomID, EventTypeRoomCreate, "", createRoomContextRaw, creator); err != nil {
+		return "", err
+	}
+	// TODO: userid add domain suffix
+	if _, err := createEvent(session, roomID, EventTypeRoomMember, creator, roomMemberContextRaw, creator); err != nil {
+		return "", err
+	}
+	if _, err := createEvent(session, roomID, EventTypeRoomPowerLevels, "", []byte("{}"), creator); err != nil {
+		return "", err
+	}
+
 	if alias != "" {
 		if _, err := session.Insert(roomAlias); err != nil {
 			return "", err
 		}
+		if _, err := createEvent(session, roomID, EventTypeRoomCanonicalAlias, "", roomAliasContextRaw, creator); err != nil {
+			return "", err
+		}
 	}
+
+	// TODO: m.room.join_rules, m.room.history_visibility, m.room.guest_acces
+
+	if _, err := createEvent(session, roomID, EventTypeRoomName, "", roomNameContextRaw, creator); err != nil {
+		return "", err
+	}
+	if _, err := createEvent(session, roomID, EventTypeRoomTopic, "", roomTopicContextRaw, creator); err != nil {
+		return "", err
+	}
+
 	if err := session.Commit(); err != nil {
 		return "", nil
 	}
