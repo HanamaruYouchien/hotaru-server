@@ -115,12 +115,11 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 	roomNameContextRaw, _ := json.Marshal(&EventRoomNameContent{Name: name})
 	roomTopicContextRaw, _ := json.Marshal(&EventRoomTopicContent{Topic: topic})
 
-	// TODO: Apply events
 	session := db.engine.NewSession()
 	defer session.Close()
 
 	if err := session.Begin(); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	if _, err := session.Insert(room, accountRoom); err != nil {
@@ -156,7 +155,7 @@ func (db *Storage) CreateRoom(name, topic, visibility, creator, alias string) (s
 	}
 
 	if err := session.Commit(); err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return roomID, nil
@@ -358,7 +357,22 @@ func (db *Storage) RoomLeave(roomID, localpart string) error {
 	case MembershipTypeBanned, MembershipTypeUnrelated:
 		return ErrNoPermission
 	}
-	if _, err := db.engine.ID(schemas.PK{localpart, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+
+	roomMemberContextRaw, _ := json.Marshal(&EventRoomMemberContent{
+		Membership: "leave",
+	})
+	session := db.engine.NewSession()
+	defer session.Close()
+	if err := session.Begin(); err != nil {
+		return err
+	}
+	if _, err := session.ID(schemas.PK{localpart, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+		return err
+	}
+	if _, err := createEvent(session, roomID, EventTypeRoomMember, localpart, roomMemberContextRaw, localpart); err != nil {
+		return err
+	}
+	if err := session.Commit(); err != nil {
 		return err
 	}
 
@@ -392,7 +406,21 @@ func (db *Storage) RoomKick(roomID, from, target string) error {
 		return ErrNoPermission
 	}
 
-	if _, err := db.engine.ID(schemas.PK{target, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+	roomMemberContextRaw, _ := json.Marshal(&EventRoomMemberContent{
+		Membership: "leave",
+	})
+	session := db.engine.NewSession()
+	defer session.Close()
+	if err := session.Begin(); err != nil {
+		return err
+	}
+	if _, err := session.ID(schemas.PK{target, roomID}).Cols("membership").Update(&AccountRoom{Membership: MembershipTypeUnrelated}); err != nil {
+		return err
+	}
+	if _, err := createEvent(session, roomID, EventTypeRoomMember, target, roomMemberContextRaw, from); err != nil {
+		return err
+	}
+	if err := session.Commit(); err != nil {
 		return err
 	}
 
