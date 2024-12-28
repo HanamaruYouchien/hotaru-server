@@ -940,7 +940,42 @@ func (s *Server) formatEvent(inputEvent storage.Event) storage.Event {
 func (s *Server) sync(w http.ResponseWriter, r *http.Request) {
 	account := middleware.GetAccount(r)
 	_ = account
-	// TODO do it
+	request := model.RequestSync{
+		Filter:      "",
+		FullState:   false,
+		SetPresence: "online",
+		Since:       time.Unix(0, 0),
+		TimeOut:     0,
+	}
+	if filter := r.URL.Query().Get("filter"); filter != "" {
+		request.Filter = filter
+	}
+	if fullstate := r.URL.Query().Get("fullstate"); fullstate != "" {
+		request.FullState = fullstate == "true"
+	}
+	if setpresence := r.URL.Query().Get("online"); setpresence != "" {
+		request.SetPresence = setpresence
+	}
+	if since := r.URL.Query().Get("since"); since != "" {
+		request.Since, _ = time.Parse(time.RFC3339, since)
+	}
+	if timeout := r.URL.Query().Get("timeout"); timeout != "" {
+		request.TimeOut, _ = strconv.Atoi(timeout)
+	}
+
+	response := model.SyncResponse{}
+	// Account Data
+
+	// Next Batch
+	response.NextBatch = time.Now().Format(time.RFC3339)
+	// Presence
+
+	// Rooms
+
+	{
+
+	}
+
 }
 
 func (s *Server) apiGetEvent(w http.ResponseWriter, r *http.Request) {

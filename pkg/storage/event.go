@@ -298,10 +298,32 @@ func (db *Storage) GetMessages(roomID string, limit int, dir string, from time.T
 	return messages, nil
 }
 
+// Function to Create and Insert an Event
+// TODO: make a type for input?
+func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string, content json.RawMessage, unsignedData json.RawMessage, sender string, txnId string) (string, error) {
+	session := db.engine.NewSession()
+	defer session.Close()
+
+	if err := session.Begin(); err != nil {
+		return "", err
+	}
+
+	eventID, _ := crypto.GenerateEventID()
+	if _, err := session.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, StateKey: stateKey, Sender: sender, Content: content, UnsignedData: unsignedData}); err != nil {
+		session.Rollback()
+		return "", err
+	}
+
+	if err := session.Commit(); err != nil {
+		return "", err
+	}
+
+	return eventID, nil
+}
+
 // Send
 func (db *Storage) SendState(roomID string, eventType string, stateKey string, content json.RawMessage, sender string) (string, error) {
-	eventID, _ := crypto.GenerateEventID()
-	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, StateKey: stateKey, Sender: sender, Content: content})
+	eventID, err := db.CreateEvent(roomID, eventType, stateKey, content, nil, sender, "")
 	if err != nil {
 		return "", err
 	}
@@ -309,8 +331,7 @@ func (db *Storage) SendState(roomID string, eventType string, stateKey string, c
 }
 
 func (db *Storage) SendText(roomID string, eventType string, txnId string, text json.RawMessage, sender string) (string, error) {
-	eventID, _ := crypto.GenerateEventID()
-	_, err := db.engine.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, Sender: sender, Content: text})
+	eventID, err := db.CreateEvent(roomID, eventType, "", text, nil, sender, txnId)
 	if err != nil {
 		return "", err
 	}

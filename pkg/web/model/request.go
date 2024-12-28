@@ -216,6 +216,14 @@ type Filter struct {
 	RoomTypes         []string `json:"room_types,omitempty"`
 }
 
+type RequestSync struct {
+	Filter      string    `json:"filter,omitempty"`
+	FullState   bool      `json:"full_state,omitempty"`
+	SetPresence string    `json:"set_presence,omitempty"`
+	Since       time.Time `json:"since,omitempty"`
+	TimeOut     int       `json:time_out,omitempty`
+}
+
 type RequestGetMessage struct {
 	Dir    string    `json:"dir,omitempty"`
 	Filter string    `json:"filter,omitempty"`
