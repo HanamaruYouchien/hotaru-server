@@ -7,6 +7,7 @@ import (
 
 	"hotaru.hana.im/server/pkg/crypto"
 	// "hotaru.hana.im/server/pkg/web/model"
+	"xorm.io/xorm"
 	"xorm.io/xorm/schemas"
 )
 
@@ -316,7 +317,7 @@ func (db *Storage) GetSyncTimeline(roomID string, limit int, from time.Time) ([]
 
 // Function to Create and Insert an Event
 // TODO: make a type for input?
-func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string, content json.RawMessage, unsignedData json.RawMessage, sender string, txnId string) (string, error) {
+func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string, content json.RawMessage, sender string, txnId string) (string, error) {
 	session := db.engine.NewSession()
 	defer session.Close()
 
@@ -324,9 +325,8 @@ func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string,
 		return "", err
 	}
 
-	eventID, _ := crypto.GenerateEventID()
-	if _, err := session.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, StateKey: stateKey, Sender: sender, Content: content, UnsignedData: unsignedData}); err != nil {
-		session.Rollback()
+	eventID, err := createEvent(session, roomID, eventType, stateKey, content, sender)
+	if err != nil {
 		return "", err
 	}
 
@@ -337,9 +337,17 @@ func (db *Storage) CreateEvent(roomID string, eventType string, stateKey string,
 	return eventID, nil
 }
 
+func createEvent(session *xorm.Session, roomID string, eventType string, stateKey string, content json.RawMessage, sender string) (eventID string, err error) {
+	eventID, _ = crypto.GenerateEventID()
+	if _, err := session.Insert(&Event{EventId: eventID, RoomId: roomID, Type: eventType, StateKey: stateKey, Sender: sender, Content: content}); err != nil {
+		return "", err
+	}
+	return eventID, nil
+}
+
 // Send
 func (db *Storage) SendState(roomID string, eventType string, stateKey string, content json.RawMessage, sender string) (string, error) {
-	eventID, err := db.CreateEvent(roomID, eventType, stateKey, content, nil, sender, "")
+	eventID, err := db.CreateEvent(roomID, eventType, stateKey, content, sender, "")
 	if err != nil {
 		return "", err
 	}
@@ -347,7 +355,7 @@ func (db *Storage) SendState(roomID string, eventType string, stateKey string, c
 }
 
 func (db *Storage) SendText(roomID string, eventType string, txnId string, text json.RawMessage, sender string) (string, error) {
-	eventID, err := db.CreateEvent(roomID, eventType, "", text, nil, sender, txnId)
+	eventID, err := db.CreateEvent(roomID, eventType, "", text, sender, txnId)
 	if err != nil {
 		return "", err
 	}
